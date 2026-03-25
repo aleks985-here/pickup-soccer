@@ -283,9 +283,52 @@ function ScoreModal({game,onSave,onClose}) {
   </div>;
 }
 
-function Game({players,onSaveGame,isAdmin}) {
+function TeamDisplay({teams,subs,isAdmin,bench,onSub,setSubModal,subModal,avg}) {
+  return <>
+    {subs&&subs.length>0&&<div className="alert amber"><b>Subs:</b> {subs.map((s,i)=><span key={i}>{i>0?', ':''}{s.out}→{s.in} (T{s.team})</span>)}</div>}
+    {teams&&teams.map((team,ti)=><div key={ti} className={`tbox t${ti}`}>
+      <div className="ttitle">
+        <span>TEAM {LABELS[ti]}</span>
+        {isAdmin&&avg&&<span style={{fontSize:12,fontWeight:400,opacity:0.65}}>avg ★{avg(team)}</span>}
+      </div>
+      {team.map((p,pi)=><div key={pi} className="tplayer">
+        <Av name={typeof p==='string'?p:p.name} size={26}/>
+        <span style={{flex:1,fontWeight:500}}>{typeof p==='string'?p:p.name}</span>
+        {typeof p!=='string'&&(p.positions||['MID']).slice(0,1).map(pos=><span key={pos} className={`ptag ${pos}`}>{pos}</span>)}
+        {isAdmin&&typeof p!=='string'&&<span style={{fontSize:11,color:'#888',margin:'0 4px'}}>★{p.skill}</span>}
+        {isAdmin&&setSubModal&&typeof p!=='string'&&<button className="btn sm warn" style={{padding:'3px 8px',fontSize:11}} onClick={()=>setSubModal({player:p,teamIdx:ti})}>SUB</button>}
+      </div>)}
+    </div>)}
+  </>;
+}
+
+function ViewerGame({games}) {
+  const latest=games&&games[0];
+  if(!latest) return <div className="section">
+    <div className="hrow"><span className="page-title">Next game</span></div>
+    <div className="empty"><div className="icon">⚽</div><div className="title">No teams yet</div><p style={{fontSize:14}}>Check back closer to game day — teams will appear here once posted.</p></div>
+  </div>;
+  const teamColors=['#1a4f80','#7a4d00','#2a5c0e','#6a1040'];
+  return <div className="section">
+    <div className="hrow"><span className="page-title">Latest game</span><span className="count">{latest.player_count} players</span></div>
+    <div style={{background:'#fff',border:'1px solid #e0e0e0',borderRadius:8,padding:'10px 14px',marginBottom:14,fontSize:13}}>
+      <span style={{fontWeight:600,color:'#2d5509'}}>📅 {latest.game_date}</span>
+      <span style={{color:'#888',marginLeft:8}}>{latest.team_count} teams · {latest.player_count} players</span>
+    </div>
+    {(latest.teams||[]).map((t,ti)=><div key={ti} className={`tbox t${ti}`}>
+      <div className="ttitle"><span>TEAM {LABELS[ti]}</span>
+        {latest.scores&&latest.scores[ti]!==undefined&&latest.scores[ti]!==0&&<span style={{fontSize:18,fontWeight:700}}>{latest.scores[ti]}</span>}
+      </div>
+      {t.map((name,i)=><div key={i} className="tplayer"><Av name={name} size={26}/><span style={{flex:1,fontWeight:500}}>{name}</span></div>)}
+    </div>)}
+    {latest.subs&&latest.subs.length>0&&<div style={{fontSize:12,color:'#888',marginTop:4}}>🔄 Subs: {latest.subs.map((s,i)=>`${s.out}→${s.in}`).join(', ')}</div>}
+  </div>;
+}
+
+function Game({players,onSaveGame,isAdmin,games}) {
   const [step,setStep]=useState('attend');
-  const [attending,setAttending]=useState([]);
+  const [attending,setAttending]=useState([]); // array of player ids
+  const [guests,setGuests]=useState({}); // {playerId: count} for +1/+2
   const [teams,setTeams]=useState(null);
   const [n,setN]=useState(2);
   const [scores,setScores]=useState({});
@@ -294,12 +337,38 @@ function Game({players,onSaveGame,isAdmin}) {
   const [subs,setSubs]=useState([]);
   const [q,setQ]=useState('');
   const [busy,setBusy]=useState(false);
+  const now=new Date();
+  const [gameDate,setGameDate]=useState(now.toISOString().slice(0,10));
+  const [gameTime,setGameTime]=useState('10:00');
 
   const tog=id=>setAttending(a=>a.includes(id)?a.filter(x=>x!==id):[...a,id]);
-  const present=players.filter(p=>attending.includes(p.id));
+
+  // Add/remove guest count for a player
+  const addGuest=(id)=>setGuests(g=>({...g,[id]:Math.min((g[id]||0)+1,3)}));
+  const removeGuest=(id)=>setGuests(g=>{const n={...g};if(n[id]>1)n[id]--;else delete n[id];return n;});
+
+  // Build full attending list including guest objects
+  const buildPresent=()=>{
+    const base=players.filter(p=>attending.includes(p.id));
+    const guestPlayers=[];
+    base.forEach(p=>{
+      const count=guests[p.id]||0;
+      for(let i=1;i<=count;i++){
+        guestPlayers.push({
+          id:`guest_${p.id}_${i}`,
+          name:`Guest${count>1?' '+i:''} (${p.name.split(' ')[0]})`,
+          skill:5,positions:['MID'],isGuest:true,vouchedBy:p.name
+        });
+      }
+    });
+    return [...base,...guestPlayers];
+  };
+
+  const present=buildPresent();
+  const totalCount=present.length;
   const filtered=useMemo(()=>players.filter(p=>p.name.toLowerCase().includes(q.toLowerCase())),[players,q]);
   const inTeam=useMemo(()=>teams?new Set(teams.flat().map(p=>p.id)):new Set(),[teams]);
-  const bench=players.filter(p=>!inTeam.has(p.id));
+  const bench=present.filter(p=>!inTeam.has(p.id));
   const avg=t=>t.length?(t.reduce((s,p)=>s+p.skill,0)/t.length).toFixed(1):'0';
 
   const gen=()=>{setTeams(genTeams(present,n));setScores({});setSaved(false);setSubs([]);setStep('teams');};
@@ -316,12 +385,18 @@ function Game({players,onSaveGame,isAdmin}) {
     setSubModal(null);setSaved(false);
   };
 
+  const fmtDate=()=>{
+    const d=new Date(gameDate+'T12:00:00');
+    const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    return `${days[d.getDay()]} ${d.toLocaleDateString('en-US',{month:'short',day:'numeric'})} · ${gameTime}`;
+  };
+
   const save=async()=>{
     setBusy(true);
     await onSaveGame({
-      game_date:new Date().toLocaleDateString(),
+      game_date:fmtDate(),
       team_count:n,
-      player_count:present.length,
+      player_count:totalCount,
       teams:teams.map(t=>t.map(p=>p.name)),
       scores:Object.keys(scores).reduce((a,k)=>({...a,[k]:+scores[k]||0}),{}),
       subs
@@ -329,19 +404,23 @@ function Game({players,onSaveGame,isAdmin}) {
     setSaved(true);setBusy(false);
   };
 
-  if(!isAdmin) return <div className="section">
-    <div className="empty">
-      <div className="icon">🔒</div>
-      <div className="title">Admin only</div>
-      <p style={{fontSize:14,marginBottom:16}}>Login as admin to manage games</p>
-    </div>
-  </div>;
+  if(!isAdmin) return <ViewerGame games={games}/>;
 
   if(step==='attend') return <div className="section">
-    <div className="hrow"><span className="page-title">Who's playing?</span>{attending.length>0&&<span className="count">{attending.length} in</span>}</div>
+    <div className="hrow">
+      <span className="page-title">Who's playing?</span>
+      {totalCount>0&&<span className="count">{totalCount} in</span>}
+    </div>
+    <div className="card-wrap" style={{padding:'12px 14px',marginBottom:14}}>
+      <div style={{fontSize:12,color:'#666',marginBottom:8,fontWeight:500}}>📅 Game date &amp; time</div>
+      <div style={{display:'flex',gap:8}}>
+        <input type="date" value={gameDate} onChange={e=>setGameDate(e.target.value)} style={{flex:2}}/>
+        <input type="time" value={gameTime} onChange={e=>setGameTime(e.target.value)} style={{flex:1}}/>
+      </div>
+    </div>
     <div style={{display:'flex',gap:8,marginBottom:12,alignItems:'center'}}>
       <button className="btn sm" onClick={()=>setAttending(players.map(p=>p.id))}>All</button>
-      <button className="btn sm" onClick={()=>setAttending([])}>Clear</button>
+      <button className="btn sm" onClick={()=>{setAttending([]);setGuests({});}}>Clear</button>
       <div style={{flex:1}}/>
       <label style={{margin:0,fontSize:12}}>Teams:</label>
       <select value={n} onChange={e=>setN(+e.target.value)} style={{width:'auto',padding:'5px 8px',fontSize:13}}>
@@ -350,22 +429,43 @@ function Game({players,onSaveGame,isAdmin}) {
     </div>
     <div style={{marginBottom:12}}><input value={q} onChange={e=>setQ(e.target.value)} placeholder="🔍  Search…"/></div>
     <div className="card-wrap" style={{marginBottom:14}}>
-      {filtered.map(p=><div key={p.id} className="crow" onClick={()=>tog(p.id)}>
-        <div className={`chk${attending.includes(p.id)?' on':''}`}>{attending.includes(p.id)&&<svg width="12" height="12" viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3" stroke="white" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>}</div>
-        <Av name={p.name} size={28}/>
-        <span style={{flex:1,fontWeight:500,fontSize:14}}>{p.name}</span>
-        {isAdmin&&<span className="spill">★{p.skill}</span>}
-      </div>)}
+      {filtered.map(p=>{
+        const isIn=attending.includes(p.id);
+        const gCount=guests[p.id]||0;
+        return <div key={p.id}>
+          <div className="crow" onClick={()=>{tog(p.id);if(isIn)removeGuest(p.id)&&setGuests(g=>{const n={...g};delete n[p.id];return n;});}}>
+            <div className={`chk${isIn?' on':''}`}>{isIn&&<svg width="12" height="12" viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3" stroke="white" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>}</div>
+            <Av name={p.name} size={28}/>
+            <span style={{flex:1,fontWeight:500,fontSize:14}}>{p.name}</span>
+            <span className="spill">★{p.skill}</span>
+          </div>
+          {isIn&&<div style={{display:'flex',alignItems:'center',gap:8,padding:'4px 0 8px 38px',borderBottom:'1px solid #f0f0f0'}}>
+            <span style={{fontSize:11,color:'#888'}}>+ guests:</span>
+            <button className="btn sm" style={{padding:'2px 8px',fontSize:12,minWidth:24}} onClick={e=>{e.stopPropagation();if(gCount>0)removeGuest(p.id);}}>−</button>
+            <span style={{fontSize:13,fontWeight:600,minWidth:16,textAlign:'center',color:gCount>0?'#2d5509':'#ccc'}}>{gCount}</span>
+            <button className="btn sm" style={{padding:'2px 8px',fontSize:12,minWidth:24}} onClick={e=>{e.stopPropagation();addGuest(p.id);}}>+</button>
+            {gCount>0&&<span style={{fontSize:11,color:'#2d5509',fontWeight:600}}>
+              {gCount===1?`Guest (${p.name.split(' ')[0]})`:`${gCount} guests (${p.name.split(' ')[0]})`}
+              <span style={{color:'#888',fontWeight:400}}> · skill 5 each</span>
+            </span>}
+          </div>}
+        </div>;
+      })}
     </div>
-    {attending.length<2&&<div className="alert amber">Select at least 2 players</div>}
-    <button className="btn primary full" onClick={gen} disabled={attending.length<2}>Generate teams ({attending.length} players)</button>
+    {totalCount<2&&<div className="alert amber">Select at least 2 players</div>}
+    <button className="btn primary full" onClick={gen} disabled={totalCount<2}>
+      Generate teams ({totalCount} players{Object.values(guests).reduce((a,b)=>a+b,0)>0?`, incl. ${Object.values(guests).reduce((a,b)=>a+b,0)} guest${Object.values(guests).reduce((a,b)=>a+b,0)>1?'s':''}`:''})
+    </button>
   </div>;
 
   return <div className="section">
     <div className="hrow">
       <button className="btn sm" onClick={()=>setStep('attend')}>← Back</button>
       <span className="page-title">Teams</span>
-      <span className="count">{present.length} playing</span>
+      <span className="count">{totalCount} playing</span>
+    </div>
+    <div style={{background:'#eaf5e0',border:'1px solid #a8d87a',borderRadius:8,padding:'8px 12px',marginBottom:12,fontSize:13,fontWeight:600,color:'#2d5509'}}>
+      📅 {fmtDate()}
     </div>
     {subs.length>0&&<div className="alert amber"><b>Subs:</b> {subs.map((s,i)=><span key={i}>{i>0?', ':''}{s.out}→{s.in} (T{s.team})</span>)}</div>}
     {teams&&teams.map((team,ti)=><div key={ti} className={`tbox t${ti}`}>
@@ -375,13 +475,16 @@ function Game({players,onSaveGame,isAdmin}) {
       </div>
       {team.map(p=><div key={p.id} className="tplayer">
         <Av name={p.name} size={26}/>
-        <span style={{flex:1,fontWeight:500}}>{p.name}</span>
+        <span style={{flex:1,fontWeight:500}}>
+          {p.name}
+          {p.isGuest&&<span style={{fontSize:10,background:'#fef6e4',color:'#7a4d00',border:'1px solid #f0c060',borderRadius:4,padding:'1px 5px',marginLeft:5,fontWeight:700}}>GUEST</span>}
+        </span>
         {(p.positions||['MID']).slice(0,1).map(pos=><span key={pos} className={`ptag ${pos}`}>{pos}</span>)}
         {isAdmin&&<span style={{fontSize:11,color:'#888',margin:'0 4px'}}>★{p.skill}</span>}
         <button className="btn sm warn" style={{padding:'3px 8px',fontSize:11}} onClick={()=>setSubModal({player:p,teamIdx:ti})}>SUB</button>
       </div>)}
     </div>)}
-    {bench.length>0&&<div style={{fontSize:12,color:'#888',marginBottom:8}}>Bench: {bench.slice(0,6).map(p=>p.name).join(', ')}{bench.length>6?` +${bench.length-6} more`:''}</div>}
+    {bench.length>0&&<div style={{fontSize:12,color:'#888',marginBottom:8}}>Bench: {bench.slice(0,5).map(p=>p.name).join(', ')}{bench.length>5?` +${bench.length-5} more`:''}</div>}
     <div className="card-wrap" style={{padding:'12px 14px',marginBottom:8}}>
       <div style={{fontSize:12,color:'#666',marginBottom:8,fontWeight:500}}>Score after game (optional)</div>
       <div style={{display:'flex',gap:16,justifyContent:'center',flexWrap:'wrap'}}>
@@ -393,8 +496,8 @@ function Game({players,onSaveGame,isAdmin}) {
     </div>
     <button className="reshuffle" onClick={reshuffle}>↺ Reshuffle teams</button>
     {saved
-      ?<div className="alert green" style={{marginTop:10,textAlign:'center'}}>Game saved ✓</div>
-      :<button className="btn primary full" style={{marginTop:10}} onClick={save} disabled={busy}>{busy?'Saving…':'Save to history'}</button>
+      ?<div className="alert green" style={{marginTop:10,textAlign:'center'}}>Game saved ✓ — teams are now visible to everyone</div>
+      :<button className="btn primary full" style={{marginTop:10}} onClick={save} disabled={busy}>{busy?'Saving…':'Save & publish teams'}</button>
     }
     {subModal&&<SubModal player={subModal.player} teamIdx={subModal.teamIdx} teams={teams} bench={bench} onSub={doSub} onClose={()=>setSubModal(null)} isAdmin={isAdmin}/>}
   </div>;
@@ -494,12 +597,12 @@ function App() {
       </div>
     </div>
     <nav>
-      {[['roster','👥 Roster'],['game','⚽ New Game'],['history','📋 History']].map(([v,l])=>(
+      {[['roster','👥 Roster'],['game','⚽ Teams'],['history','📋 History']].map(([v,l])=>(
         <button key={v} className={view===v?'active':''} onClick={()=>setView(v)}>{l}</button>
       ))}
     </nav>
     {view==='roster'&&<Roster players={players} isAdmin={isAdmin} onAdd={addPlayer} onUpdate={updatePlayer} onDelete={deletePlayer}/>}
-    {view==='game'&&<Game players={players} isAdmin={isAdmin} onSaveGame={saveGame}/>}
+    {view==='game'&&<Game players={players} isAdmin={isAdmin} onSaveGame={saveGame} games={games}/>}
     {view==='history'&&<History games={games} isAdmin={isAdmin} onUpdateGame={updateGame} onDeleteGame={deleteGame}/>}
     {showLogin&&<LoginModal onClose={()=>setShowLogin(false)}/>}
   </div>;
