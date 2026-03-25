@@ -215,7 +215,7 @@ function Roster({players,isAdmin,onAdd,onUpdate,onDelete}) {
           <div style={{flex:1,minWidth:0}}>
             <div style={{fontWeight:600,fontSize:14}}>{p.name}</div>
             <div style={{display:'flex',gap:5,marginTop:3,flexWrap:'wrap',alignItems:'center'}}>
-              <span className="spill">★ {p.skill}</span>
+              {isAdmin&&<span className="spill">★ {p.skill}</span>}
               {(p.positions||['MID']).map(pos=><span key={pos} className={`ptag ${pos}`}>{pos}</span>)}
             </div>
           </div>
@@ -235,7 +235,7 @@ function Roster({players,isAdmin,onAdd,onUpdate,onDelete}) {
   </div>;
 }
 
-function SubModal({player,teamIdx,teams,bench,onSub,onClose}) {
+function SubModal({player,teamIdx,teams,bench,onSub,onClose,isAdmin}) {
   const [tab,setTab]=useState('bench');
   const opts=tab==='bench'?bench:teams.flatMap((t,ti)=>ti===teamIdx?[]:t.map(p=>({...p,_ft:ti})));
   return <div className="modal-bg" onClick={e=>e.target===e.currentTarget&&onClose()}>
@@ -251,7 +251,10 @@ function SubModal({player,teamIdx,teams,bench,onSub,onClose}) {
           <Av name={sub.name} size={28}/>
           <div style={{flex:1}}>
             <div style={{fontWeight:600,fontSize:13}}>{sub.name}{tab==='swap'&&<span style={{fontSize:11,color:'#888'}}> from Team {LABELS[sub._ft]}</span>}</div>
-            <div style={{display:'flex',gap:4,marginTop:2}}><span className="spill">★{sub.skill}</span>{(sub.positions||['MID']).slice(0,2).map(p=><span key={p} className={`ptag ${p}`}>{p}</span>)}</div>
+            <div style={{display:'flex',gap:4,marginTop:2}}>
+              {isAdmin&&<span className="spill">★{sub.skill}</span>}
+              {(sub.positions||['MID']).slice(0,2).map(p=><span key={p} className={`ptag ${p}`}>{p}</span>)}
+            </div>
           </div>
           <button className="btn sm primary">Sub in</button>
         </div>)
@@ -351,7 +354,7 @@ function Game({players,onSaveGame,isAdmin}) {
         <div className={`chk${attending.includes(p.id)?' on':''}`}>{attending.includes(p.id)&&<svg width="12" height="12" viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3" stroke="white" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>}</div>
         <Av name={p.name} size={28}/>
         <span style={{flex:1,fontWeight:500,fontSize:14}}>{p.name}</span>
-        <span className="spill">★{p.skill}</span>
+        {isAdmin&&<span className="spill">★{p.skill}</span>}
       </div>)}
     </div>
     {attending.length<2&&<div className="alert amber">Select at least 2 players</div>}
@@ -366,12 +369,15 @@ function Game({players,onSaveGame,isAdmin}) {
     </div>
     {subs.length>0&&<div className="alert amber"><b>Subs:</b> {subs.map((s,i)=><span key={i}>{i>0?', ':''}{s.out}→{s.in} (T{s.team})</span>)}</div>}
     {teams&&teams.map((team,ti)=><div key={ti} className={`tbox t${ti}`}>
-      <div className="ttitle"><span>TEAM {LABELS[ti]}</span><span style={{fontSize:12,fontWeight:400,opacity:0.65}}>avg ★{avg(team)}</span></div>
+      <div className="ttitle">
+        <span>TEAM {LABELS[ti]}</span>
+        {isAdmin&&<span style={{fontSize:12,fontWeight:400,opacity:0.65}}>avg ★{avg(team)}</span>}
+      </div>
       {team.map(p=><div key={p.id} className="tplayer">
         <Av name={p.name} size={26}/>
         <span style={{flex:1,fontWeight:500}}>{p.name}</span>
         {(p.positions||['MID']).slice(0,1).map(pos=><span key={pos} className={`ptag ${pos}`}>{pos}</span>)}
-        <span style={{fontSize:11,color:'#888',margin:'0 4px'}}>★{p.skill}</span>
+        {isAdmin&&<span style={{fontSize:11,color:'#888',margin:'0 4px'}}>★{p.skill}</span>}
         <button className="btn sm warn" style={{padding:'3px 8px',fontSize:11}} onClick={()=>setSubModal({player:p,teamIdx:ti})}>SUB</button>
       </div>)}
     </div>)}
@@ -390,7 +396,7 @@ function Game({players,onSaveGame,isAdmin}) {
       ?<div className="alert green" style={{marginTop:10,textAlign:'center'}}>Game saved ✓</div>
       :<button className="btn primary full" style={{marginTop:10}} onClick={save} disabled={busy}>{busy?'Saving…':'Save to history'}</button>
     }
-    {subModal&&<SubModal player={subModal.player} teamIdx={subModal.teamIdx} teams={teams} bench={bench} onSub={doSub} onClose={()=>setSubModal(null)}/>}
+    {subModal&&<SubModal player={subModal.player} teamIdx={subModal.teamIdx} teams={teams} bench={bench} onSub={doSub} onClose={()=>setSubModal(null)} isAdmin={isAdmin}/>}
   </div>;
 }
 
