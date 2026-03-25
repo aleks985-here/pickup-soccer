@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Westwood Pickup Soccer</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui, -apple-system, sans-serif; background: #f0f2ee; color: #1a1a1a; }
+.app { max-width: 600px; margin: 0 auto; padding-bottom: 80px; min-height: 100vh; }
+.header { background: #2d5509; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; }
+.header h1 { font-size: 20px; font-weight: 700; color: #fff; }
+.header p { font-size: 11px; color: rgba(255,255,255,0.6); margin-top: 1px; }
+nav { display: flex; background: #fff; border-bottom: 1px solid #e0e0e0; position: sticky; top: 0; z-index: 10; }
+nav button { flex: 1; padding: 13px 6px; font-size: 12px; font-weight: 600; border: none; background: none; cursor: pointer; color: #888; border-bottom: 2px solid transparent; }
+nav button.active { color: #2d5509; border-bottom-color: #2d5509; }
+.section { padding: 14px; }
+.hrow { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.page-title { font-size: 19px; font-weight: 700; }
+.count { background: #e8f4d9; color: #2d5509; border: 1px solid #a8d87a; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+.card-wrap { background: #fff; border: 1px solid #e0e0e0; border-radius: 12px; padding: 4px 14px; margin-bottom: 12px; }
+button.btn { display: inline-flex; align-items: center; gap: 5px; padding: 7px 13px; border-radius: 8px; border: 1px solid #ccc; background: #fff; cursor: pointer; font-size: 13px; font-weight: 500; color: #1a1a1a; }
+button.btn:hover { background: #f5f5f5; }
+button.btn.primary { background: #2d5509; border-color: #2d5509; color: #fff; }
+button.btn.primary:hover { background: #1e3a06; }
+button.btn.danger { color: #c0392b; border-color: #f5c6c6; }
+button.btn.danger:hover { background: #fff5f5; }
+button.btn.warn { color: #7a4d00; border-color: #f0c060; }
+button.btn.warn:hover { background: #fef6e4; }
+button.btn.sm { padding: 4px 9px; font-size: 12px; }
+button.btn.full { width: 100%; justify-content: center; padding: 12px; font-size: 14px; }
+button.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+input, select { width: 100%; padding: 9px 12px; border: 1px solid #ccc; border-radius: 8px; background: #fff; color: #1a1a1a; font-size: 14px; outline: none; }
+input:focus, select:focus { border-color: #2d5509; box-shadow: 0 0 0 2px rgba(45,85,9,0.12); }
+label { font-size: 12px; color: #666; display: block; margin-bottom: 4px; }
+.field { margin-bottom: 12px; }
+.pos-grid { display: flex; gap: 8px; flex-wrap: wrap; }
+.pos-chip { padding: 5px 13px; border-radius: 20px; border: 1px solid #ccc; font-size: 12px; font-weight: 700; cursor: pointer; background: #fff; color: #666; }
+.pos-chip.sel-GK { background: #fff0eb; border-color: #e07b5a; color: #8b3a1e; }
+.pos-chip.sel-DEF { background: #e8f2fc; border-color: #5a9fd4; color: #1a4f80; }
+.pos-chip.sel-MID { background: #eaf5e0; border-color: #6db33f; color: #2a5c0e; }
+.pos-chip.sel-FWD { background: #fef6e4; border-color: #e8a820; color: #7a4d00; }
+.prow { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid #f0f0f0; }
+.prow:last-child { border-bottom: none; }
+.av { border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; flex-shrink: 0; }
+.spill { background: #e8f4d9; color: #2a5c0e; border: 1px solid #a8d87a; padding: 2px 7px; border-radius: 10px; font-weight: 700; font-size: 11px; white-space: nowrap; }
+.ptag { font-size: 10px; font-weight: 700; padding: 2px 5px; border-radius: 4px; white-space: nowrap; }
+.ptag.GK { background: #fff0eb; color: #8b3a1e; }
+.ptag.DEF { background: #e8f2fc; color: #1a4f80; }
+.ptag.MID { background: #eaf5e0; color: #2a5c0e; }
+.ptag.FWD { background: #fef6e4; color: #7a4d00; }
+.crow { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid #f0f0f0; cursor: pointer; }
+.crow:last-child { border-bottom: none; }
+.chk { width: 20px; height: 20px; border-radius: 4px; border: 1.5px solid #bbb; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.chk.on { background: #2d5509; border-color: #2d5509; }
+.tbox { border-radius: 12px; padding: 13px; margin-bottom: 12px; }
+.tbox.t0 { background: #ddeeff; border: 1px solid #7ab8ee; }
+.tbox.t1 { background: #fff3d9; border: 1px solid #f0c060; }
+.tbox.t2 { background: #eaf5e0; border: 1px solid #8fcc5a; }
+.tbox.t3 { background: #fce8f3; border: 1px solid #e080b0; }
+.ttitle { font-size: 15px; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 9px; display: flex; justify-content: space-between; align-items: center; }
+.tbox.t0 .ttitle { color: #1a4f80; }
+.tbox.t1 .ttitle { color: #7a4d00; }
+.tbox.t2 .ttitle { color: #2a5c0e; }
+.tbox.t3 .ttitle { color: #6a1040; }
+.tplayer { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid rgba(0,0,0,0.06); font-size: 13px; }
+.tplayer:last-child { border-bottom: none; }
+.stats3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 14px; }
+.statbox { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 12px; text-align: center; }
+.statv { font-size: 22px; font-weight: 700; color: #2d5509; }
+.statl { font-size: 10px; color: #888; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.4px; }
+.alert { padding: 10px 13px; border-radius: 8px; font-size: 13px; margin-bottom: 12px; }
+.alert.green { background: #eaf5e0; color: #2a5c0e; border: 1px solid #a8d87a; }
+.alert.amber { background: #fef6e4; color: #7a4d00; border: 1px solid #f0c060; }
+.alert.red { background: #fff5f5; color: #c0392b; border: 1px solid #f5c6c6; }
+.srow { display: flex; align-items: center; gap: 12px; margin-top: 4px; }
+.srow input[type=range] { flex: 1; accent-color: #2d5509; }
+.snum { font-size: 22px; font-weight: 700; color: #2d5509; min-width: 26px; text-align: center; }
+.modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 100; display: flex; align-items: flex-end; justify-content: center; }
+.modal { background: #fff; border-radius: 16px 16px 0 0; padding: 20px; width: 100%; max-width: 600px; max-height: 88vh; overflow-y: auto; }
+.modal h2 { font-size: 17px; font-weight: 700; margin-bottom: 16px; }
+.mbtns { display: flex; gap: 8px; margin-top: 16px; }
+.reshuffle { width: 100%; margin-top: 10px; padding: 10px; background: none; border: 1px dashed #ccc; border-radius: 8px; font-size: 13px; color: #888; cursor: pointer; }
+.reshuffle:hover { background: #f5f5f5; }
+.empty { text-align: center; padding: 40px 20px; color: #888; }
+.empty .icon { font-size: 36px; margin-bottom: 12px; }
+.empty .title { font-size: 17px; font-weight: 700; color: #1a1a1a; margin-bottom: 6px; }
+.gitem { padding: 12px 0; border-bottom: 1px solid #f0f0f0; }
+.gitem:last-child { border-bottom: none; }
+.loading { display: flex; align-items: center; justify-content: center; height: 100vh; font-size: 18px; color: #2d5509; font-weight: 600; flex-direction: column; gap: 12px; }
+.admin-badge { background: rgba(255,255,255,0.25); color: #fff; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px; letter-spacing: 0.5px; }
+.hdr-btn { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); color: #fff; padding: 5px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; }
+.hdr-btn:hover { background: rgba(255,255,255,0.25); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const SUPABASE_URL = 'https://fwjlwgadoixoegysoyrg.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ3amx3Z2Fkb2l4b2VneXNveXJnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0NTkzNjcsImV4cCI6MjA5MDAzNTM2N30.LBi4gbqU0LtW9MK_-0faEBdNmc2F0QQI7rT3nfuC7JA';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const { useState, useEffect, useMemo } = React;
+const POSITIONS = ['GK','DEF','MID','FWD'];
+const LABELS = ['A','B','C','D'];
+const COLORS = ['#1565c0','#2e7d32','#b71c1c','#e65100','#6a1b9a','#00695c','#4e342e','#0277bd','#ad1457','#37474f'];
+
+function col(n) { let h=0; for(let c of(n||'X'))h=(h+c.charCodeAt(0))%COLORS.length; return COLORS[h]; }
+function ini(n) { const p=(n||'X').trim().split(' '); return(p.length>1?p[0][0]+p[p.length-1][0]:n.slice(0,2)).toUpperCase(); }
+
+function genTeams(players, n) {
+  const s=[...players].sort((a,b)=>b.skill-a.skill);
+  const gks=s.filter(p=>p.positions.includes('GK'));
+  const rest=s.filter(p=>!gks.slice(0,n).includes(p));
+  const ts=Array.from({length:n},()=>[]);
+  gks.slice(0,n).forEach((g,i)=>ts[i].push(g));
+  rest.forEach((p,i)=>{const pass=Math.floor(i/n),pos=i%n;ts[pass%2===0?pos:(n-1-pos)].push(p);});
+  const avg=t=>t.length?t.reduce((s,p)=>s+p.skill,0)/t.length:0;
+  for(let iter=0;iter<50;iter++){
+    let best=0,si=-1,sj=-1,sti=-1,stj=-1;
+    for(let ti=0;ti<n;ti++)for(let tj=ti+1;tj<n;tj++)for(let i=0;i<ts[ti].length;i++)for(let j=0;j<ts[tj].length;j++){
+      const cur=Math.abs(avg(ts[ti])-avg(ts[tj]));
+      const ni=[...ts[ti].slice(0,i),ts[tj][j],...ts[ti].slice(i+1)];
+      const nj=[...ts[tj].slice(0,j),ts[ti][i],...ts[tj].slice(j+1)];
+      const nd=Math.abs(avg(ni)-avg(nj));
+      if(cur-nd>best){best=cur-nd;si=i;sj=j;sti=ti;stj=tj;}
+    }
+    if(si<0)break;
+    const tmp=ts[sti][si];ts[sti][si]=ts[stj][sj];ts[stj][sj]=tmp;
+  }
+  return ts;
+}
+
+function Av({name,size=34}) {
+  return <div className="av" style={{width:size,height:size,fontSize:size>28?12:10,background:col(name)+'22',color:col(name)}}>{ini(name)}</div>;
+}
+
+function LoginModal({onClose}) {
+  const [email,setEmail]=useState('');
+  const [pw,setPw]=useState('');
+  const [err,setErr]=useState('');
+  const [busy,setBusy]=useState(false);
+  const login=async()=>{
+    setBusy(true);setErr('');
+    const {error}=await sb.auth.signInWithPassword({email,password:pw});
+    if(error)setErr(error.message);
+    else onClose();
+    setBusy(false);
+  };
+  return <div className="modal-bg" onClick={e=>e.target===e.currentTarget&&onClose()}>
+    <div className="modal">
+      <h2>Admin Login</h2>
+      <div className="field"><label>Email</label><input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="your@email.com" autoFocus/></div>
+      <div className="field"><label>Password</label><input type="password" value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>e.key==='Enter'&&login()}/></div>
+      {err&&<div className="alert red">{err}</div>}
+      <div className="mbtns">
+        <button className="btn primary full" onClick={login} disabled={busy||!email||!pw}>{busy?'Logging in…':'Login'}</button>
+        <button className="btn" onClick={onClose}>Cancel</button>
+      </div>
+    </div>
+  </div>;
+}
+
+function PlayerForm({player,onSave,onCancel,busy}) {
+  const [f,setF]=useState(player||{name:'',skill:5,positions:['MID']});
+  const set=(k,v)=>setF(x=>({...x,[k]:v}));
+  const tog=p=>set('positions',f.positions.includes(p)?f.positions.filter(x=>x!==p):[...f.positions,p]);
+  return <div>
+    <div className="field"><label>Name</label><input value={f.name} onChange={e=>set('name',e.target.value)} placeholder="Player name" autoFocus/></div>
+    <div className="field">
+      <label>Skill — <b>{f.skill}/10</b></label>
+      <div className="srow"><input type="range" min="1" max="10" step="1" value={f.skill} onChange={e=>set('skill',+e.target.value)}/><span className="snum">{f.skill}</span></div>
+    </div>
+    <div className="field">
+      <label style={{marginBottom:8}}>Preferred positions</label>
+      <div className="pos-grid">{POSITIONS.map(p=><button key={p} className={`pos-chip${f.positions.includes(p)?' sel-'+p:''}`} onClick={()=>tog(p)}>{p}</button>)}</div>
+    </div>
+    <div className="mbtns">
+      <button className="btn primary full" onClick={()=>f.name.trim()&&onSave(f)} disabled={!f.name.trim()||busy}>{busy?'Saving…':'Save'}</button>
+      <button className="btn" onClick={onCancel}>Cancel</button>
+    </div>
+  </div>;
+}
+
+function Roster({players,isAdmin,onAdd,onUpdate,onDelete}) {
+  const [modal,setModal]=useState(null);
+  const [q,setQ]=useState('');
+  const [busy,setBusy]=useState(false);
+  const list=useMemo(()=>players.filter(p=>p.name.toLowerCase().includes(q.toLowerCase())),[players,q]);
+  const save=async f=>{
+    setBusy(true);
+    if(modal==='add')await onAdd(f);
+    else await onUpdate(modal.id,f);
+    setBusy(false);setModal(null);
+  };
+  const del=async id=>{if(!window.confirm('Remove this player?'))return;await onDelete(id);};
+  return <div className="section">
+    <div className="hrow">
+      <span className="page-title">Roster</span>
+      <div style={{display:'flex',gap:8,alignItems:'center'}}>
+        <span className="count">{players.length} players</span>
+        {isAdmin&&<button className="btn primary sm" onClick={()=>setModal('add')}>+ Add</button>}
+      </div>
+    </div>
+    <div style={{marginBottom:12}}><input value={q} onChange={e=>setQ(e.target.value)} placeholder="🔍  Search players…"/></div>
+    <div className="card-wrap">
+      {list.length===0
+        ?<div style={{padding:'16px 0',textAlign:'center',color:'#888',fontSize:13}}>No players found</div>
+        :list.map(p=><div key={p.id} className="prow">
+          <Av name={p.name}/>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontWeight:600,fontSize:14}}>{p.name}</div>
+            <div style={{display:'flex',gap:5,marginTop:3,flexWrap:'wrap',alignItems:'center'}}>
+              <span className="spill">★ {p.skill}</span>
+              {(p.positions||['MID']).map(pos=><span key={pos} className={`ptag ${pos}`}>{pos}</span>)}
+            </div>
+          </div>
+          {isAdmin&&<div style={{display:'flex',gap:6,flexShrink:0}}>
+            <button className="btn sm" onClick={()=>setModal(p)}>Edit</button>
+            <button className="btn sm danger" onClick={()=>del(p.id)}>✕</button>
+          </div>}
+        </div>)
+      }
+    </div>
+    {modal&&<div className="modal-bg" onClick={e=>e.target===e.currentTarget&&setModal(null)}>
+      <div className="modal">
+        <h2>{modal==='add'?'Add player':'Edit — '+modal.name}</h2>
+        <PlayerForm player={modal!=='add'?modal:null} onSave={save} onCancel={()=>setModal(null)} busy={busy}/>
+      </div>
+    </div>}
+  </div>;
+}
+
+function SubModal({player,teamIdx,teams,bench,onSub,onClose}) {
+  const [tab,setTab]=useState('bench');
+  const opts=tab==='bench'?bench:teams.flatMap((t,ti)=>ti===teamIdx?[]:t.map(p=>({...p,_ft:ti})));
+  return <div className="modal-bg" onClick={e=>e.target===e.currentTarget&&onClose()}>
+    <div className="modal">
+      <h2>Substitute {player.name}</h2>
+      <div style={{display:'flex',gap:8,marginBottom:14}}>
+        <button className={`btn sm${tab==='bench'?' primary':''}`} onClick={()=>setTab('bench')}>Bench ({bench.length})</button>
+        <button className={`btn sm${tab==='swap'?' primary':''}`} onClick={()=>setTab('swap')}>Swap teams</button>
+      </div>
+      {opts.length===0
+        ?<p style={{color:'#888',fontSize:14,padding:'8px 0'}}>No players available</p>
+        :opts.map(sub=><div key={sub.id} className="prow" style={{cursor:'pointer'}} onClick={()=>onSub(player,teamIdx,sub,tab==='swap'?sub._ft:null)}>
+          <Av name={sub.name} size={28}/>
+          <div style={{flex:1}}>
+            <div style={{fontWeight:600,fontSize:13}}>{sub.name}{tab==='swap'&&<span style={{fontSize:11,color:'#888'}}> from Team {LABELS[sub._ft]}</span>}</div>
+            <div style={{display:'flex',gap:4,marginTop:2}}><span className="spill">★{sub.skill}</span>{(sub.positions||['MID']).slice(0,2).map(p=><span key={p} className={`ptag ${p}`}>{p}</span>)}</div>
+          </div>
+          <button className="btn sm primary">Sub in</button>
+        </div>)
+      }
+      <div className="mbtns"><button className="btn full" onClick={onClose}>Cancel</button></div>
+    </div>
+  </div>;
+}
+
+function ScoreModal({game,onSave,onClose}) {
+  const [sc,setSc]=useState({...(game.scores||{})});
+  return <div className="modal-bg" onClick={e=>e.target===e.currentTarget&&onClose()}>
+    <div className="modal">
+      <h2>Score — {game.game_date}</h2>
+      <div style={{display:'flex',gap:16,justifyContent:'center',flexWrap:'wrap',marginBottom:16}}>
+        {(game.teams||[]).map((t,ti)=><div key={ti} style={{textAlign:'center'}}>
+          <div style={{fontSize:11,color:'#888',marginBottom:6,fontWeight:600}}>TEAM {LABELS[ti]}</div>
+          <input type="number" min="0" value={sc[ti]??''} onChange={e=>setSc(s=>({...s,[ti]:e.target.value}))} style={{width:60,textAlign:'center',fontSize:22,fontWeight:700,padding:'6px 4px'}}/>
+        </div>)}
+      </div>
+      <div className="mbtns">
+        <button className="btn primary full" onClick={()=>onSave(sc)}>Save score</button>
+        <button className="btn" onClick={onClose}>Cancel</button>
+      </div>
+    </div>
+  </div>;
+}
+
+function Game({players,onSaveGame,isAdmin}) {
+  const [step,setStep]=useState('attend');
+  const [attending,setAttending]=useState([]);
+  const [teams,setTeams]=useState(null);
+  const [n,setN]=useState(2);
+  const [scores,setScores]=useState({});
+  const [saved,setSaved]=useState(false);
+  const [subModal,setSubModal]=useState(null);
+  const [subs,setSubs]=useState([]);
+  const [q,setQ]=useState('');
+  const [busy,setBusy]=useState(false);
+
+  const tog=id=>setAttending(a=>a.includes(id)?a.filter(x=>x!==id):[...a,id]);
+  const present=players.filter(p=>attending.includes(p.id));
+  const filtered=useMemo(()=>players.filter(p=>p.name.toLowerCase().includes(q.toLowerCase())),[players,q]);
+  const inTeam=useMemo(()=>teams?new Set(teams.flat().map(p=>p.id)):new Set(),[teams]);
+  const bench=players.filter(p=>!inTeam.has(p.id));
+  const avg=t=>t.length?(t.reduce((s,p)=>s+p.skill,0)/t.length).toFixed(1):'0';
+
+  const gen=()=>{setTeams(genTeams(present,n));setScores({});setSaved(false);setSubs([]);setStep('teams');};
+  const reshuffle=()=>{setTeams(genTeams(present,n));setSaved(false);setSubs([]);};
+
+  const doSub=(out,fromTi,inp,inTi)=>{
+    setTeams(ts=>{
+      const next=ts.map(t=>[...t]);
+      if(inTi===null){const i=next[fromTi].findIndex(p=>p.id===out.id);next[fromTi][i]=inp;}
+      else{const i=next[fromTi].findIndex(p=>p.id===out.id);const j=next[inTi].findIndex(p=>p.id===inp.id);next[fromTi][i]=inp;next[inTi][j]=out;}
+      return next;
+    });
+    setSubs(s=>[...s,{out:out.name,in:inp.name,team:LABELS[fromTi]}]);
+    setSubModal(null);setSaved(false);
+  };
+
+  const save=async()=>{
+    setBusy(true);
+    await onSaveGame({
+      game_date:new Date().toLocaleDateString(),
+      team_count:n,
+      player_count:present.length,
+      teams:teams.map(t=>t.map(p=>p.name)),
+      scores:Object.keys(scores).reduce((a,k)=>({...a,[k]:+scores[k]||0}),{}),
+      subs
+    });
+    setSaved(true);setBusy(false);
+  };
+
+  if(!isAdmin) return <div className="section">
+    <div className="empty">
+      <div className="icon">🔒</div>
+      <div className="title">Admin only</div>
+      <p style={{fontSize:14,marginBottom:16}}>Login as admin to manage games</p>
+    </div>
+  </div>;
+
+  if(step==='attend') return <div className="section">
+    <div className="hrow"><span className="page-title">Who's playing?</span>{attending.length>0&&<span className="count">{attending.length} in</span>}</div>
+    <div style={{display:'flex',gap:8,marginBottom:12,alignItems:'center'}}>
+      <button className="btn sm" onClick={()=>setAttending(players.map(p=>p.id))}>All</button>
+      <button className="btn sm" onClick={()=>setAttending([])}>Clear</button>
+      <div style={{flex:1}}/>
+      <label style={{margin:0,fontSize:12}}>Teams:</label>
+      <select value={n} onChange={e=>setN(+e.target.value)} style={{width:'auto',padding:'5px 8px',fontSize:13}}>
+        <option value={2}>2</option><option value={3}>3</option><option value={4}>4</option>
+      </select>
+    </div>
+    <div style={{marginBottom:12}}><input value={q} onChange={e=>setQ(e.target.value)} placeholder="🔍  Search…"/></div>
+    <div className="card-wrap" style={{marginBottom:14}}>
+      {filtered.map(p=><div key={p.id} className="crow" onClick={()=>tog(p.id)}>
+        <div className={`chk${attending.includes(p.id)?' on':''}`}>{attending.includes(p.id)&&<svg width="12" height="12" viewBox="0 0 12 12"><polyline points="2,6 5,9 10,3" stroke="white" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>}</div>
+        <Av name={p.name} size={28}/>
+        <span style={{flex:1,fontWeight:500,fontSize:14}}>{p.name}</span>
+        <span className="spill">★{p.skill}</span>
+      </div>)}
+    </div>
+    {attending.length<2&&<div className="alert amber">Select at least 2 players</div>}
+    <button className="btn primary full" onClick={gen} disabled={attending.length<2}>Generate teams ({attending.length} players)</button>
+  </div>;
+
+  return <div className="section">
+    <div className="hrow">
+      <button className="btn sm" onClick={()=>setStep('attend')}>← Back</button>
+      <span className="page-title">Teams</span>
+      <span className="count">{present.length} playing</span>
+    </div>
+    {subs.length>0&&<div className="alert amber"><b>Subs:</b> {subs.map((s,i)=><span key={i}>{i>0?', ':''}{s.out}→{s.in} (T{s.team})</span>)}</div>}
+    {teams&&teams.map((team,ti)=><div key={ti} className={`tbox t${ti}`}>
+      <div className="ttitle"><span>TEAM {LABELS[ti]}</span><span style={{fontSize:12,fontWeight:400,opacity:0.65}}>avg ★{avg(team)}</span></div>
+      {team.map(p=><div key={p.id} className="tplayer">
+        <Av name={p.name} size={26}/>
+        <span style={{flex:1,fontWeight:500}}>{p.name}</span>
+        {(p.positions||['MID']).slice(0,1).map(pos=><span key={pos} className={`ptag ${pos}`}>{pos}</span>)}
+        <span style={{fontSize:11,color:'#888',margin:'0 4px'}}>★{p.skill}</span>
+        <button className="btn sm warn" style={{padding:'3px 8px',fontSize:11}} onClick={()=>setSubModal({player:p,teamIdx:ti})}>SUB</button>
+      </div>)}
+    </div>)}
+    {bench.length>0&&<div style={{fontSize:12,color:'#888',marginBottom:8}}>Bench: {bench.slice(0,6).map(p=>p.name).join(', ')}{bench.length>6?` +${bench.length-6} more`:''}</div>}
+    <div className="card-wrap" style={{padding:'12px 14px',marginBottom:8}}>
+      <div style={{fontSize:12,color:'#666',marginBottom:8,fontWeight:500}}>Score after game (optional)</div>
+      <div style={{display:'flex',gap:16,justifyContent:'center',flexWrap:'wrap'}}>
+        {teams&&teams.map((t,ti)=><div key={ti} style={{textAlign:'center'}}>
+          <div style={{fontSize:11,color:'#888',marginBottom:4,fontWeight:600}}>TEAM {LABELS[ti]}</div>
+          <input type="number" min="0" value={scores[ti]??''} onChange={e=>setScores(s=>({...s,[ti]:e.target.value}))} placeholder="0" style={{width:54,textAlign:'center',fontSize:20,fontWeight:700}}/>
+        </div>)}
+      </div>
+    </div>
+    <button className="reshuffle" onClick={reshuffle}>↺ Reshuffle teams</button>
+    {saved
+      ?<div className="alert green" style={{marginTop:10,textAlign:'center'}}>Game saved ✓</div>
+      :<button className="btn primary full" style={{marginTop:10}} onClick={save} disabled={busy}>{busy?'Saving…':'Save to history'}</button>
+    }
+    {subModal&&<SubModal player={subModal.player} teamIdx={subModal.teamIdx} teams={teams} bench={bench} onSub={doSub} onClose={()=>setSubModal(null)}/>}
+  </div>;
+}
+
+function History({games,isAdmin,onUpdateGame,onDeleteGame}) {
+  const [scoreModal,setScoreModal]=useState(null);
+  const saveScore=async(id,sc)=>{
+    await onUpdateGame(id,{scores:Object.keys(sc).reduce((a,k)=>({...a,[k]:+sc[k]||0}),{})});
+    setScoreModal(null);
+  };
+  const del=async id=>{if(!window.confirm('Delete this game?'))return;await onDeleteGame(id);};
+
+  if(!games.length) return <div className="section">
+    <div className="page-title" style={{marginBottom:14}}>History</div>
+    <div className="empty"><div className="icon">📋</div><div className="title">No games yet</div><p style={{fontSize:14}}>Generate and save a game to start</p></div>
+  </div>;
+
+  const uniq=new Set(games.flatMap(g=>(g.teams||[]).flat())).size;
+  return <div className="section">
+    <div className="hrow"><span className="page-title">History</span><span className="count">{games.length} games</span></div>
+    <div className="stats3">
+      <div className="statbox"><div className="statv">{games.length}</div><div className="statl">Games</div></div>
+      <div className="statbox"><div className="statv">{uniq}</div><div className="statl">Players</div></div>
+      <div className="statbox"><div className="statv">{Math.round(games.reduce((s,g)=>s+(g.player_count||0),0)/games.length)}</div><div className="statl">Avg size</div></div>
+    </div>
+    <div className="card-wrap">
+      {games.map(g=><div key={g.id} className="gitem">
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
+          <span style={{fontSize:13,color:'#888',fontWeight:600}}>{g.game_date} · {g.player_count}P · {g.team_count}T</span>
+          {isAdmin&&<div style={{display:'flex',gap:6}}>
+            <button className="btn sm" onClick={()=>setScoreModal(g)}>+ Score</button>
+            <button className="btn sm danger" onClick={()=>del(g.id)}>✕</button>
+          </div>}
+        </div>
+        {(g.teams||[]).map((t,ti)=><div key={ti} style={{fontSize:12,marginBottom:3,display:'flex',gap:7,alignItems:'flex-start'}}>
+          <b style={{minWidth:14,color:['#1a4f80','#7a4d00','#2a5c0e','#6a1040'][ti]||'#333',flexShrink:0}}>{'ABCD'[ti]}</b>
+          {g.scores&&g.scores[ti]!==undefined&&g.scores[ti]!==0&&<b style={{color:['#1a4f80','#7a4d00','#2a5c0e','#6a1040'][ti]||'#333',minWidth:14,flexShrink:0}}>{g.scores[ti]}</b>}
+          <span style={{color:'#555'}}>{t.join(', ')}</span>
+        </div>)}
+        {g.subs&&g.subs.length>0&&<div style={{marginTop:5,fontSize:11,color:'#888'}}>🔄 {g.subs.map((s,i)=>`${s.out}→${s.in}`).join(', ')}</div>}
+      </div>)}
+    </div>
+    {scoreModal&&<ScoreModal game={scoreModal} onSave={sc=>saveScore(scoreModal.id,sc)} onClose={()=>setScoreModal(null)}/>}
+  </div>;
+}
+
+function App() {
+  const [user,setUser]=useState(null);
+  const [players,setPlayers]=useState([]);
+  const [games,setGames]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [view,setView]=useState('roster');
+  const [showLogin,setShowLogin]=useState(false);
+
+  useEffect(()=>{
+    sb.auth.getSession().then(({data})=>setUser(data.session?.user??null));
+    const {data:{subscription}}=sb.auth.onAuthStateChange((_,session)=>setUser(session?.user??null));
+    return ()=>subscription.unsubscribe();
+  },[]);
+
+  useEffect(()=>{load();},[]);
+
+  async function load() {
+    const [{data:p},{data:g}]=await Promise.all([
+      sb.from('players').select('*').order('name'),
+      sb.from('games').select('*').order('created_at',{ascending:false})
+    ]);
+    setPlayers(p||[]);
+    setGames(g||[]);
+    setLoading(false);
+  }
+
+  const addPlayer=async f=>{await sb.from('players').insert({name:f.name,skill:f.skill,positions:f.positions,games_played:0});await load();};
+  const updatePlayer=async(id,f)=>{await sb.from('players').update({name:f.name,skill:f.skill,positions:f.positions}).eq('id',id);await load();};
+  const deletePlayer=async id=>{await sb.from('players').delete().eq('id',id);await load();};
+  const saveGame=async data=>{await sb.from('games').insert(data);await load();};
+  const updateGame=async(id,data)=>{await sb.from('games').update(data).eq('id',id);await load();};
+  const deleteGame=async id=>{await sb.from('games').delete().eq('id',id);await load();};
+
+  const isAdmin=!!user;
+
+  if(loading) return <div className="loading"><span style={{fontSize:32}}>⚽</span>Loading…</div>;
+
+  return <div className="app">
+    <div className="header">
+      <div>
+        <h1>⚽ Pickup Soccer</h1>
+        <p>WESTWOOD CREW</p>
+      </div>
+      <div style={{display:'flex',alignItems:'center',gap:8}}>
+        {isAdmin&&<span className="admin-badge">ADMIN</span>}
+        {isAdmin
+          ?<button className="hdr-btn" onClick={()=>sb.auth.signOut()}>Logout</button>
+          :<button className="hdr-btn" onClick={()=>setShowLogin(true)}>Admin Login</button>
+        }
+      </div>
+    </div>
+    <nav>
+      {[['roster','👥 Roster'],['game','⚽ New Game'],['history','📋 History']].map(([v,l])=>(
+        <button key={v} className={view===v?'active':''} onClick={()=>setView(v)}>{l}</button>
+      ))}
+    </nav>
+    {view==='roster'&&<Roster players={players} isAdmin={isAdmin} onAdd={addPlayer} onUpdate={updatePlayer} onDelete={deletePlayer}/>}
+    {view==='game'&&<Game players={players} isAdmin={isAdmin} onSaveGame={saveGame}/>}
+    {view==='history'&&<History games={games} isAdmin={isAdmin} onUpdateGame={updateGame} onDeleteGame={deleteGame}/>}
+    {showLogin&&<LoginModal onClose={()=>setShowLogin(false)}/>}
+  </div>;
+}
+
+ReactDOM.render(<App/>, document.getElementById('root'));
+</script>
+</body>
+</html>
