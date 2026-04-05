@@ -114,7 +114,7 @@ function ini(n) { const p=(n||'X').trim().split(' '); return(p.length>1?p[0][0]+
 
 function genTeams(players, n) {
   const s=[...players].sort((a,b)=>b.skill-a.skill);
-  const gks=s.filter(p=>p.positions.includes('GK'));
+  const gks=s.filter(p=>(p.positions||[]).includes('GK'));
   const rest=s.filter(p=>!gks.slice(0,n).includes(p));
   const ts=Array.from({length:n},()=>[]);
   gks.slice(0,n).forEach((g,i)=>ts[i].push(g));
@@ -186,8 +186,77 @@ function PlayerForm({player,onSave,onCancel,busy}) {
   </div>;
 }
 
+function BulkEdit({players,onUpdate,onClose}) {
+  const [edits,setEdits]=useState(()=>Object.fromEntries(players.map(p=>[p.id,{skill:p.skill,positions:[...(p.positions||['MID'])]}])));
+  const [q,setQ]=useState('');
+  const [saving,setSaving]=useState(false);
+  const [saved,setSaved]=useState(false);
+  const [dirty,setDirty]=useState({});
+  const filtered=useMemo(()=>players.filter(p=>p.name.toLowerCase().includes(q.toLowerCase())),[players,q]);
+
+  const setSkill=(id,v)=>{setEdits(e=>({...e,[id]:{...e[id],skill:+v}}));setDirty(d=>({...d,[id]:true}));setSaved(false);};
+  const togglePos=(id,pos)=>{
+    setEdits(e=>{
+      const cur=e[id].positions;
+      const next=cur.includes(pos)?cur.filter(x=>x!==pos):[...cur,pos];
+      return {...e,[id]:{...e[id],positions:next.length?next:['MID']}};
+    });
+    setDirty(d=>({...d,[id]:true}));setSaved(false);
+  };
+
+  const saveAll=async()=>{
+    setSaving(true);
+    const changed=players.filter(p=>dirty[p.id]);
+    await Promise.all(changed.map(p=>onUpdate(p.id,{name:p.name,skill:edits[p.id].skill,positions:edits[p.id].positions})));
+    setSaving(false);setSaved(true);setDirty({});
+  };
+
+  const dirtyCount=Object.keys(dirty).length;
+  const POSCOLORS={GK:'#fff0eb',DEF:'#e8f2fc',MID:'#eaf5e0',FWD:'#fef6e4'};
+  const POSTXT={GK:'#8b3a1e',DEF:'#1a4f80',MID:'#2a5c0e',FWD:'#7a4d00'};
+  const POSBORDER={GK:'#e07b5a',DEF:'#5a9fd4',MID:'#6db33f',FWD:'#e8a820'};
+
+  return <div className="section">
+    <div className="hrow">
+      <button className="btn sm" onClick={onClose}>← Back</button>
+      <span className="page-title">Bulk edit</span>
+      <span className="count">{players.length} players</span>
+    </div>
+    <div style={{marginBottom:8,fontSize:12,color:'#888'}}>Tap skill number to change · tap positions to toggle · save when done</div>
+    {saved&&<div className="alert green" style={{marginBottom:10}}>All changes saved ✓</div>}
+    <div style={{marginBottom:12}}><input value={q} onChange={e=>setQ(e.target.value)} placeholder="🔍  Search…"/></div>
+    <div style={{background:'#fff',border:'1px solid #e0e0e0',borderRadius:12,marginBottom:80}}>
+      {filtered.map((p,i)=>{
+        const e=edits[p.id];
+        const isDirty=dirty[p.id];
+        return <div key={p.id} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 14px',borderBottom:i<filtered.length-1?'1px solid #f0f0f0':'none',background:isDirty?'#fffdf0':'transparent'}}>
+          <Av name={p.name} size={30}/>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontWeight:600,fontSize:13,marginBottom:5}}>{p.name}{isDirty&&<span style={{fontSize:10,color:'#e8a820',fontWeight:700,marginLeft:6}}>EDITED</span>}</div>
+            <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+              {['GK','DEF','MID','FWD'].map(pos=><button key={pos} onClick={()=>togglePos(p.id,pos)} style={{padding:'2px 7px',borderRadius:4,fontSize:11,fontWeight:700,cursor:'pointer',border:`1px solid ${e.positions.includes(pos)?POSBORDER[pos]:'#ddd'}`,background:e.positions.includes(pos)?POSCOLORS[pos]:'#f9f9f9',color:e.positions.includes(pos)?POSTXT[pos]:'#aaa'}}>{pos}</button>)}
+            </div>
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
+            <button className="btn sm" style={{padding:'3px 8px',fontSize:13}} onClick={()=>setSkill(p.id,Math.max(1,e.skill-1))}>−</button>
+            <span style={{fontFamily:'monospace',fontSize:16,fontWeight:700,color:'#2d5509',minWidth:18,textAlign:'center'}}>{e.skill}</span>
+            <button className="btn sm" style={{padding:'3px 8px',fontSize:13}} onClick={()=>setSkill(p.id,Math.min(10,e.skill+1))}>+</button>
+          </div>
+        </div>;
+      })}
+    </div>
+    <div style={{position:'fixed',bottom:0,left:0,right:0,background:'#fff',borderTop:'1px solid #e0e0e0',padding:'12px 16px',display:'flex',gap:10,maxWidth:600,margin:'0 auto',zIndex:20}}>
+      {dirtyCount>0
+        ?<button className="btn primary full" onClick={saveAll} disabled={saving}>{saving?'Saving…':`Save ${dirtyCount} change${dirtyCount>1?'s':''}`}</button>
+        :<button className="btn full" onClick={onClose}>Done</button>
+      }
+    </div>
+  </div>;
+}
+
 function Roster({players,isAdmin,onAdd,onUpdate,onDelete}) {
   const [modal,setModal]=useState(null);
+  const [bulk,setBulk]=useState(false);
   const [q,setQ]=useState('');
   const [busy,setBusy]=useState(false);
   const list=useMemo(()=>players.filter(p=>p.name.toLowerCase().includes(q.toLowerCase())),[players,q]);
@@ -198,11 +267,15 @@ function Roster({players,isAdmin,onAdd,onUpdate,onDelete}) {
     setBusy(false);setModal(null);
   };
   const del=async id=>{if(!window.confirm('Remove this player?'))return;await onDelete(id);};
+
+  if(isAdmin&&bulk) return <BulkEdit players={players} onUpdate={onUpdate} onClose={()=>setBulk(false)}/>;
+
   return <div className="section">
     <div className="hrow">
       <span className="page-title">Roster</span>
       <div style={{display:'flex',gap:8,alignItems:'center'}}>
         <span className="count">{players.length} players</span>
+        {isAdmin&&<button className="btn sm" style={{color:'#2d5509',borderColor:'#a8d87a'}} onClick={()=>setBulk(true)}>✏️ Bulk edit</button>}
         {isAdmin&&<button className="btn primary sm" onClick={()=>setModal('add')}>+ Add</button>}
       </div>
     </div>
@@ -364,15 +437,21 @@ function Game({players,onSaveGame,isAdmin,games}) {
     return [...base,...guestPlayers];
   };
 
+  const [presentPlayers,setPresentPlayers]=useState([]);
   const present=buildPresent();
   const totalCount=present.length;
   const filtered=useMemo(()=>players.filter(p=>p.name.toLowerCase().includes(q.toLowerCase())),[players,q]);
   const inTeam=useMemo(()=>teams?new Set(teams.flat().map(p=>p.id)):new Set(),[teams]);
-  const bench=present.filter(p=>!inTeam.has(p.id));
+  const bench=presentPlayers.filter(p=>!inTeam.has(p.id));
   const avg=t=>t.length?(t.reduce((s,p)=>s+p.skill,0)/t.length).toFixed(1):'0';
 
-  const gen=()=>{setTeams(genTeams(present,n));setScores({});setSaved(false);setSubs([]);setStep('teams');};
-  const reshuffle=()=>{setTeams(genTeams(present,n));setSaved(false);setSubs([]);};
+  const gen=()=>{
+    const p=buildPresent();
+    setPresentPlayers(p);
+    setTeams(genTeams(p,n));
+    setScores({});setSaved(false);setSubs([]);setStep('teams');
+  };
+  const reshuffle=()=>{setTeams(genTeams(presentPlayers,n));setSaved(false);setSubs([]);};
 
   const doSub=(out,fromTi,inp,inTi)=>{
     setTeams(ts=>{
@@ -462,7 +541,7 @@ function Game({players,onSaveGame,isAdmin,games}) {
     <div className="hrow">
       <button className="btn sm" onClick={()=>setStep('attend')}>← Back</button>
       <span className="page-title">Teams</span>
-      <span className="count">{totalCount} playing</span>
+      <span className="count">{presentPlayers.length} playing</span>
     </div>
     <div style={{background:'#eaf5e0',border:'1px solid #a8d87a',borderRadius:8,padding:'8px 12px',marginBottom:12,fontSize:13,fontWeight:600,color:'#2d5509'}}>
       📅 {fmtDate()}
@@ -479,9 +558,11 @@ function Game({players,onSaveGame,isAdmin,games}) {
           {p.name}
           {p.isGuest&&<span style={{fontSize:10,background:'#fef6e4',color:'#7a4d00',border:'1px solid #f0c060',borderRadius:4,padding:'1px 5px',marginLeft:5,fontWeight:700}}>GUEST</span>}
         </span>
-        {(p.positions||['MID']).slice(0,1).map(pos=><span key={pos} className={`ptag ${pos}`}>{pos}</span>)}
-        {isAdmin&&<span style={{fontSize:11,color:'#888',margin:'0 4px'}}>★{p.skill}</span>}
-        <button className="btn sm warn" style={{padding:'3px 8px',fontSize:11}} onClick={()=>setSubModal({player:p,teamIdx:ti})}>SUB</button>
+        <div style={{display:'flex',gap:3,flexWrap:'wrap',justifyContent:'flex-end'}}>
+          {(p.positions||['MID']).map(pos=><span key={pos} className={`ptag ${pos}`}>{pos}</span>)}
+        </div>
+        {isAdmin&&<span style={{fontSize:11,color:'#888',margin:'0 4px',flexShrink:0}}>★{p.skill}</span>}
+        <button className="btn sm warn" style={{padding:'3px 8px',fontSize:11,flexShrink:0}} onClick={()=>setSubModal({player:p,teamIdx:ti})}>SUB</button>
       </div>)}
     </div>)}
     {bench.length>0&&<div style={{fontSize:12,color:'#888',marginBottom:8}}>Bench: {bench.slice(0,5).map(p=>p.name).join(', ')}{bench.length>5?` +${bench.length-5} more`:''}</div>}
