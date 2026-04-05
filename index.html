@@ -140,27 +140,55 @@ function Av({name,size=34}) {
 }
 
 function LoginModal({onClose}) {
+  const [mode,setMode]=useState('choose'); // choose | email
   const [email,setEmail]=useState('');
   const [pw,setPw]=useState('');
   const [err,setErr]=useState('');
   const [busy,setBusy]=useState(false);
-  const login=async()=>{
+
+  const loginGoogle=async()=>{
+    setBusy(true);setErr('');
+    const {error}=await sb.auth.signInWithOAuth({
+      provider:'google',
+      options:{redirectTo:window.location.origin}
+    });
+    if(error){setErr(error.message);setBusy(false);}
+  };
+
+  const loginEmail=async()=>{
     setBusy(true);setErr('');
     const {error}=await sb.auth.signInWithPassword({email,password:pw});
     if(error)setErr(error.message);
     else onClose();
     setBusy(false);
   };
+
   return <div className="modal-bg" onClick={e=>e.target===e.currentTarget&&onClose()}>
     <div className="modal">
       <h2>Admin Login</h2>
-      <div className="field"><label>Email</label><input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="your@email.com" autoFocus/></div>
-      <div className="field"><label>Password</label><input type="password" value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>e.key==='Enter'&&login()}/></div>
-      {err&&<div className="alert red">{err}</div>}
-      <div className="mbtns">
-        <button className="btn primary full" onClick={login} disabled={busy||!email||!pw}>{busy?'Logging in…':'Login'}</button>
-        <button className="btn" onClick={onClose}>Cancel</button>
-      </div>
+      {mode==='choose'&&<>
+        <button className="btn full" style={{marginBottom:10,gap:10,justifyContent:'center',padding:'12px',fontSize:14,borderColor:'#dadce0'}} onClick={loginGoogle} disabled={busy}>
+          <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+          Continue with Google
+        </button>
+        <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}>
+          <div style={{flex:1,height:1,background:'#e0e0e0'}}/>
+          <span style={{fontSize:12,color:'#888'}}>or</span>
+          <div style={{flex:1,height:1,background:'#e0e0e0'}}/>
+        </div>
+        <button className="btn full" style={{padding:'12px',fontSize:14}} onClick={()=>setMode('email')}>Sign in with email</button>
+      </>}
+      {mode==='email'&&<>
+        <div className="field"><label>Email</label><input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="your@email.com" autoFocus/></div>
+        <div className="field"><label>Password</label><input type="password" value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>e.key==='Enter'&&loginEmail()}/></div>
+        {err&&<div className="alert red">{err}</div>}
+        <div className="mbtns">
+          <button className="btn" onClick={()=>setMode('choose')}>← Back</button>
+          <button className="btn primary full" onClick={loginEmail} disabled={busy||!email||!pw}>{busy?'Signing in…':'Sign in'}</button>
+        </div>
+      </>}
+      {err&&mode==='choose'&&<div className="alert red" style={{marginTop:10}}>{err}</div>}
+      <button className="btn full" style={{marginTop:10,color:'#888',border:'none',fontSize:13}} onClick={onClose}>Cancel</button>
     </div>
   </div>;
 }
@@ -379,9 +407,11 @@ function ViewerGame({games}) {
   const latest=games&&games[0];
   if(!latest) return <div className="section">
     <div className="hrow"><span className="page-title">Next game</span></div>
-    <div className="empty"><div className="icon">⚽</div><div className="title">No teams yet</div><p style={{fontSize:14}}>Check back closer to game day — teams will appear here once posted.</p></div>
+    <div className="empty"><div className="icon">⚽</div><div className="title">No teams yet</div><p style={{fontSize:14}}>Check back closer to game day.</p></div>
   </div>;
-  const teamColors=['#1a4f80','#7a4d00','#2a5c0e','#6a1040'];
+  const getName=p=>typeof p==='string'?p:p.name;
+  const getPos=p=>typeof p==='string'?[]:p.positions||[];
+  const isGuest=p=>typeof p!=='string'&&p.isGuest;
   return <div className="section">
     <div className="hrow"><span className="page-title">Latest game</span><span className="count">{latest.player_count} players</span></div>
     <div style={{background:'#fff',border:'1px solid #e0e0e0',borderRadius:8,padding:'10px 14px',marginBottom:14,fontSize:13}}>
@@ -389,12 +419,20 @@ function ViewerGame({games}) {
       <span style={{color:'#888',marginLeft:8}}>{latest.team_count} teams · {latest.player_count} players</span>
     </div>
     {(latest.teams||[]).map((t,ti)=><div key={ti} className={`tbox t${ti}`}>
-      <div className="ttitle"><span>TEAM {LABELS[ti]}</span>
+      <div className="ttitle">
+        <span>TEAM {LABELS[ti]}</span>
         {latest.scores&&latest.scores[ti]!==undefined&&latest.scores[ti]!==0&&<span style={{fontSize:18,fontWeight:700}}>{latest.scores[ti]}</span>}
       </div>
-      {t.map((name,i)=><div key={i} className="tplayer"><Av name={name} size={26}/><span style={{flex:1,fontWeight:500}}>{name}</span></div>)}
+      {t.map((p,i)=><div key={i} className="tplayer">
+        <Av name={getName(p)} size={26}/>
+        <span style={{flex:1,fontWeight:500}}>
+          {getName(p)}
+          {isGuest(p)&&<span style={{fontSize:10,background:'#fef6e4',color:'#7a4d00',border:'1px solid #f0c060',borderRadius:4,padding:'1px 5px',marginLeft:5,fontWeight:700}}>GUEST</span>}
+        </span>
+        <div style={{display:'flex',gap:3}}>{getPos(p).map(pos=><span key={pos} className={`ptag ${pos}`}>{pos}</span>)}</div>
+      </div>)}
     </div>)}
-    {latest.subs&&latest.subs.length>0&&<div style={{fontSize:12,color:'#888',marginTop:4}}>🔄 Subs: {latest.subs.map((s,i)=>`${s.out}→${s.in}`).join(', ')}</div>}
+    {latest.subs&&latest.subs.length>0&&<div style={{fontSize:12,color:'#888',marginTop:4}}>🔄 {latest.subs.map((s,i)=>`${s.out}→${s.in}`).join(', ')}</div>}
   </div>;
 }
 
@@ -476,7 +514,8 @@ function Game({players,onSaveGame,isAdmin,games}) {
       game_date:fmtDate(),
       team_count:n,
       player_count:totalCount,
-      teams:teams.map(t=>t.map(p=>p.name)),
+      // Save objects with name+positions so viewer can show positions
+      teams:teams.map(t=>t.map(p=>({name:p.name,positions:p.positions||['MID'],isGuest:p.isGuest||false}))),
       scores:Object.keys(scores).reduce((a,k)=>({...a,[k]:+scores[k]||0}),{}),
       subs
     });
@@ -584,20 +623,109 @@ function Game({players,onSaveGame,isAdmin,games}) {
   </div>;
 }
 
-function History({games,isAdmin,onUpdateGame,onDeleteGame}) {
+function AdjustGame({game,players,onSave,onClose}) {
+  const getName=p=>typeof p==='string'?p:p.name;
+  const getPos=p=>typeof p==='string'?[]:p.positions||[];
+
+  // Convert saved teams to editable format - look up player data where possible
+  const hydrate=t=>t.map(p=>{
+    const name=getName(p);
+    const found=players.find(pl=>pl.name===name);
+    return found?{...found}:{id:'saved_'+name,name,positions:getPos(p),skill:5,isGuest:(typeof p!=='string'&&p.isGuest)||false};
+  });
+
+  const [teams,setTeams]=useState(()=>(game.teams||[]).map(hydrate));
+  const [busy,setBusy]=useState(false);
+  const [moveMode,setMoveMode]=useState(null); // {player, fromTeam}
+
+  const allPlayers=teams.flat();
+  const avg=t=>t.length?(t.reduce((s,p)=>s+p.skill,0)/t.length).toFixed(1):'0';
+
+  const selectPlayer=(player,fromTeam)=>{
+    if(!moveMode){setMoveMode({player,fromTeam});return;}
+    // If same player clicked again, deselect
+    if(moveMode.player.id===player.id){setMoveMode(null);return;}
+    // Swap the two players
+    setTeams(ts=>{
+      const next=ts.map(t=>[...t]);
+      const i=next[moveMode.fromTeam].findIndex(p=>p.id===moveMode.player.id);
+      const j=next[fromTeam].findIndex(p=>p.id===player.id);
+      if(moveMode.fromTeam===fromTeam){
+        // same team - just reorder, no real point but allow it
+        next[moveMode.fromTeam][i]=player;
+        next[fromTeam][j]=moveMode.player;
+      } else {
+        next[moveMode.fromTeam][i]=player;
+        next[fromTeam][j]=moveMode.player;
+      }
+      return next;
+    });
+    setMoveMode(null);
+  };
+
+  const removePlayer=(player,fromTeam)=>{
+    setTeams(ts=>{const next=ts.map(t=>[...t]);next[fromTeam]=next[fromTeam].filter(p=>p.id!==player.id);return next;});
+    setMoveMode(null);
+  };
+
+  const saveChanges=async()=>{
+    setBusy(true);
+    await onSave(game.id,{
+      teams:teams.map(t=>t.map(p=>({name:p.name,positions:p.positions||['MID'],isGuest:p.isGuest||false}))),
+      player_count:teams.flat().length
+    });
+    setBusy(false);onClose();
+  };
+
+  return <div className="section">
+    <div className="hrow">
+      <button className="btn sm" onClick={onClose}>← Back</button>
+      <span className="page-title">Adjust teams</span>
+    </div>
+    <div style={{background:'#fef6e4',border:'1px solid #f0c060',borderRadius:8,padding:'10px 14px',marginBottom:14,fontSize:13}}>
+      <b>How to use:</b> tap a player to select them (turns orange), then tap another player to swap them between teams. Tap ✕ to remove a no-show.
+    </div>
+    {moveMode&&<div className="alert amber">Moving: <b>{moveMode.player.name}</b> — tap any player to swap, or tap them again to cancel</div>}
+    {teams.map((team,ti)=><div key={ti} className={`tbox t${ti}`}>
+      <div className="ttitle"><span>TEAM {LABELS[ti]}</span><span style={{fontSize:12,fontWeight:400,opacity:0.65}}>avg ★{avg(team)}</span></div>
+      {team.map(p=>{
+        const isSelected=moveMode&&moveMode.player.id===p.id;
+        return <div key={p.id} className="tplayer" style={{background:isSelected?'rgba(234,162,0,0.15)':'transparent',borderRadius:6,cursor:'pointer'}} onClick={()=>selectPlayer(p,ti)}>
+          <Av name={p.name} size={26}/>
+          <span style={{flex:1,fontWeight:500,color:isSelected?'#7a4d00':'inherit'}}>{p.name}</span>
+          <div style={{display:'flex',gap:3,marginRight:6}}>{(p.positions||['MID']).map(pos=><span key={pos} className={`ptag ${pos}`}>{pos}</span>)}</div>
+          <span style={{fontSize:11,color:'#888',marginRight:6}}>★{p.skill}</span>
+          <button className="btn sm danger" style={{padding:'2px 6px',fontSize:11}} onClick={e=>{e.stopPropagation();removePlayer(p,ti);}}>✕</button>
+        </div>;
+      })}
+    </div>)}
+    <div className="mbtns">
+      <button className="btn primary full" onClick={saveChanges} disabled={busy}>{busy?'Saving…':'Save changes & republish'}</button>
+      <button className="btn" onClick={onClose}>Cancel</button>
+    </div>
+  </div>;
+}
+
+function History({games,players,isAdmin,onUpdateGame,onDeleteGame}) {
   const [scoreModal,setScoreModal]=useState(null);
+  const [adjustGame,setAdjustGame]=useState(null);
+
   const saveScore=async(id,sc)=>{
     await onUpdateGame(id,{scores:Object.keys(sc).reduce((a,k)=>({...a,[k]:+sc[k]||0}),{})});
     setScoreModal(null);
   };
   const del=async id=>{if(!window.confirm('Delete this game?'))return;await onDeleteGame(id);};
 
+  const getName=p=>typeof p==='string'?p:p.name;
+
+  if(adjustGame) return <AdjustGame game={adjustGame} players={players} onSave={async(id,data)=>{await onUpdateGame(id,data);setAdjustGame(null);}} onClose={()=>setAdjustGame(null)}/>;
+
   if(!games.length) return <div className="section">
     <div className="page-title" style={{marginBottom:14}}>History</div>
     <div className="empty"><div className="icon">📋</div><div className="title">No games yet</div><p style={{fontSize:14}}>Generate and save a game to start</p></div>
   </div>;
 
-  const uniq=new Set(games.flatMap(g=>(g.teams||[]).flat())).size;
+  const uniq=new Set(games.flatMap(g=>(g.teams||[]).flat().map(getName))).size;
   return <div className="section">
     <div className="hrow"><span className="page-title">History</span><span className="count">{games.length} games</span></div>
     <div className="stats3">
@@ -606,10 +734,11 @@ function History({games,isAdmin,onUpdateGame,onDeleteGame}) {
       <div className="statbox"><div className="statv">{Math.round(games.reduce((s,g)=>s+(g.player_count||0),0)/games.length)}</div><div className="statl">Avg size</div></div>
     </div>
     <div className="card-wrap">
-      {games.map(g=><div key={g.id} className="gitem">
+      {games.map((g,gi)=><div key={g.id} className="gitem">
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
-          <span style={{fontSize:13,color:'#888',fontWeight:600}}>{g.game_date} · {g.player_count}P · {g.team_count}T</span>
+          <span style={{fontSize:13,color:'#888',fontWeight:600}}>{g.game_date} · {g.player_count}P</span>
           {isAdmin&&<div style={{display:'flex',gap:6}}>
+            {gi===0&&<button className="btn sm" style={{color:'#7a4d00',borderColor:'#f0c060'}} onClick={()=>setAdjustGame(g)}>✏️ Adjust</button>}
             <button className="btn sm" onClick={()=>setScoreModal(g)}>+ Score</button>
             <button className="btn sm danger" onClick={()=>del(g.id)}>✕</button>
           </div>}
@@ -617,7 +746,7 @@ function History({games,isAdmin,onUpdateGame,onDeleteGame}) {
         {(g.teams||[]).map((t,ti)=><div key={ti} style={{fontSize:12,marginBottom:3,display:'flex',gap:7,alignItems:'flex-start'}}>
           <b style={{minWidth:14,color:['#1a4f80','#7a4d00','#2a5c0e','#6a1040'][ti]||'#333',flexShrink:0}}>{'ABCD'[ti]}</b>
           {g.scores&&g.scores[ti]!==undefined&&g.scores[ti]!==0&&<b style={{color:['#1a4f80','#7a4d00','#2a5c0e','#6a1040'][ti]||'#333',minWidth:14,flexShrink:0}}>{g.scores[ti]}</b>}
-          <span style={{color:'#555'}}>{t.join(', ')}</span>
+          <span style={{color:'#555'}}>{t.map(getName).join(', ')}</span>
         </div>)}
         {g.subs&&g.subs.length>0&&<div style={{marginTop:5,fontSize:11,color:'#888'}}>🔄 {g.subs.map((s,i)=>`${s.out}→${s.in}`).join(', ')}</div>}
       </div>)}
@@ -684,7 +813,7 @@ function App() {
     </nav>
     {view==='roster'&&<Roster players={players} isAdmin={isAdmin} onAdd={addPlayer} onUpdate={updatePlayer} onDelete={deletePlayer}/>}
     {view==='game'&&<Game players={players} isAdmin={isAdmin} onSaveGame={saveGame} games={games}/>}
-    {view==='history'&&<History games={games} isAdmin={isAdmin} onUpdateGame={updateGame} onDeleteGame={deleteGame}/>}
+    {view==='history'&&<History games={games} players={players} isAdmin={isAdmin} onUpdateGame={updateGame} onDeleteGame={deleteGame}/>}
     {showLogin&&<LoginModal onClose={()=>setShowLogin(false)}/>}
   </div>;
 }
