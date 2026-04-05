@@ -282,7 +282,7 @@ function BulkEdit({players,onUpdate,onClose}) {
   </div>;
 }
 
-function Roster({players,isAdmin,onAdd,onUpdate,onDelete}) {
+function Roster({players,isAdmin,canDelete,onAdd,onUpdate,onDelete}) {
   const [modal,setModal]=useState(null);
   const [bulk,setBulk]=useState(false);
   const [q,setQ]=useState('');
@@ -322,7 +322,7 @@ function Roster({players,isAdmin,onAdd,onUpdate,onDelete}) {
           </div>
           {isAdmin&&<div style={{display:'flex',gap:6,flexShrink:0}}>
             <button className="btn sm" onClick={()=>setModal(p)}>Edit</button>
-            <button className="btn sm danger" onClick={()=>del(p.id)}>✕</button>
+            {canDelete&&<button className="btn sm danger" onClick={()=>del(p.id)}>✕</button>}
           </div>}
         </div>)
       }
@@ -706,7 +706,7 @@ function AdjustGame({game,players,onSave,onClose}) {
   </div>;
 }
 
-function History({games,players,isAdmin,onUpdateGame,onDeleteGame}) {
+function History({games,players,isAdmin,canDelete,onUpdateGame,onDeleteGame}) {
   const [scoreModal,setScoreModal]=useState(null);
   const [adjustGame,setAdjustGame]=useState(null);
 
@@ -740,7 +740,7 @@ function History({games,players,isAdmin,onUpdateGame,onDeleteGame}) {
           {isAdmin&&<div style={{display:'flex',gap:6}}>
             {gi===0&&<button className="btn sm" style={{color:'#7a4d00',borderColor:'#f0c060'}} onClick={()=>setAdjustGame(g)}>✏️ Adjust</button>}
             <button className="btn sm" onClick={()=>setScoreModal(g)}>+ Score</button>
-            <button className="btn sm danger" onClick={()=>del(g.id)}>✕</button>
+            {canDelete&&<button className="btn sm danger" onClick={()=>del(g.id)}>✕</button>}
           </div>}
         </div>
         {(g.teams||[]).map((t,ti)=><div key={ti} style={{fontSize:12,marginBottom:3,display:'flex',gap:7,alignItems:'flex-start'}}>
@@ -755,29 +755,148 @@ function History({games,players,isAdmin,onUpdateGame,onDeleteGame}) {
   </div>;
 }
 
+function Settings({role,onClose}) {
+  const [captains,setCaptains]=useState([]);
+  const [newEmail,setNewEmail]=useState('');
+  const [settings,setSettings]=useState(null);
+  const [busy,setBusy]=useState(false);
+  const [msg,setMsg]=useState('');
+
+  useEffect(()=>{loadSettings();},[]);
+
+  async function loadSettings() {
+    const [{data:r},{data:s}]=await Promise.all([
+      sb.from('user_roles').select('*').order('created_at'),
+      sb.from('group_settings').select('*').eq('id',1).single()
+    ]);
+    setCaptains((r||[]).filter(r=>r.role==='captain'));
+    setSettings(s||{group_name:'Westwood Pickup',game_days:['Sunday','Wednesday'],game_time:'10:00',location:'Westwood'});
+  }
+
+  const addCaptain=async()=>{
+    if(!newEmail.trim())return;
+    setBusy(true);setMsg('');
+    const {error}=await sb.from('user_roles').insert({email:newEmail.trim().toLowerCase(),role:'captain'});
+    if(error)setMsg('Error: '+error.message);
+    else{setNewEmail('');setMsg('Captain added. They need to sign in with this email.');await loadSettings();}
+    setBusy(false);
+  };
+
+  const removeCaptain=async(id)=>{
+    if(!window.confirm('Remove this captain?'))return;
+    await sb.from('user_roles').delete().eq('id',id);
+    await loadSettings();
+  };
+
+  const saveSettings=async()=>{
+    setBusy(true);
+    await sb.from('group_settings').update({
+      group_name:settings.group_name,
+      game_time:settings.game_time,
+      location:settings.location
+    }).eq('id',1);
+    setMsg('Settings saved.');setBusy(false);
+    setTimeout(()=>setMsg(''),3000);
+  };
+
+  return <div className="section">
+    <div className="hrow">
+      <span className="page-title">Settings</span>
+      <button className="btn sm" onClick={onClose}>← Back</button>
+    </div>
+
+    <div style={{fontSize:11,fontWeight:700,color:'#888',letterSpacing:'0.5px',marginBottom:8,textTransform:'uppercase'}}>Group</div>
+    <div className="card-wrap" style={{padding:'14px'}}>
+      <div className="field">
+        <label>Group name</label>
+        <input value={settings?.group_name||''} onChange={e=>setSettings(s=>({...s,group_name:e.target.value}))}/>
+      </div>
+      <div className="field">
+        <label>Default game time</label>
+        <input type="time" value={settings?.game_time||'10:00'} onChange={e=>setSettings(s=>({...s,game_time:e.target.value}))}/>
+      </div>
+      <div className="field" style={{marginBottom:0}}>
+        <label>Location</label>
+        <input value={settings?.location||''} onChange={e=>setSettings(s=>({...s,location:e.target.value}))} placeholder="e.g. Westwood Fields"/>
+      </div>
+      <button className="btn primary full" style={{marginTop:14}} onClick={saveSettings} disabled={busy}>Save group settings</button>
+    </div>
+
+    <div style={{fontSize:11,fontWeight:700,color:'#888',letterSpacing:'0.5px',marginBottom:8,marginTop:20,textTransform:'uppercase'}}>Captains</div>
+    <div style={{fontSize:12,color:'#888',marginBottom:10}}>Captains can edit player ratings and positions, generate teams, and record scores. They cannot delete players or change settings.</div>
+
+    <div className="card-wrap" style={{padding:'14px',marginBottom:12}}>
+      <label>Add captain by email</label>
+      <div style={{display:'flex',gap:8,marginTop:4}}>
+        <input value={newEmail} onChange={e=>setNewEmail(e.target.value)} placeholder="captain@email.com" type="email" onKeyDown={e=>e.key==='Enter'&&addCaptain()}/>
+        <button className="btn primary" style={{flexShrink:0}} onClick={addCaptain} disabled={busy||!newEmail.trim()}>Add</button>
+      </div>
+    </div>
+
+    {captains.length===0
+      ?<div style={{padding:'16px',textAlign:'center',color:'#888',fontSize:13,background:'#fff',borderRadius:12,border:'1px solid #e0e0e0'}}>No captains yet</div>
+      :<div className="card-wrap">
+        {captains.map(c=><div key={c.id} className="prow">
+          <div style={{width:34,height:34,borderRadius:'50%',background:'#e8f2fc',color:'#1a4f80',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,fontSize:13,flexShrink:0}}>C</div>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontWeight:600,fontSize:14}}>{c.email}</div>
+            <div style={{fontSize:11,color:'#888',marginTop:2}}>Captain · added {new Date(c.created_at).toLocaleDateString()}</div>
+          </div>
+          <button className="btn sm danger" onClick={()=>removeCaptain(c.id)}>Remove</button>
+        </div>)}
+      </div>
+    }
+
+    {msg&&<div className={`alert ${msg.startsWith('Error')?'red':'green'}`} style={{marginTop:12}}>{msg}</div>}
+
+    <div style={{fontSize:11,fontWeight:700,color:'#888',letterSpacing:'0.5px',marginBottom:8,marginTop:20,textTransform:'uppercase'}}>Your account</div>
+    <div className="card-wrap" style={{padding:'14px'}}>
+      <div style={{fontSize:13,color:'#555',marginBottom:12}}>You are the <b>admin</b> of this group. Only you can access this settings page, add/remove captains, and delete players or games.</div>
+      <button className="btn danger full" onClick={()=>sb.auth.signOut()}>Sign out</button>
+    </div>
+  </div>;
+}
+
 function App() {
   const [user,setUser]=useState(null);
+  const [role,setRole]=useState(null); // 'admin' | 'captain' | null
   const [players,setPlayers]=useState([]);
   const [games,setGames]=useState([]);
+  const [groupName,setGroupName]=useState('Westwood Pickup');
   const [loading,setLoading]=useState(true);
   const [view,setView]=useState('roster');
   const [showLogin,setShowLogin]=useState(false);
+  const [showSettings,setShowSettings]=useState(false);
 
   useEffect(()=>{
-    sb.auth.getSession().then(({data})=>setUser(data.session?.user??null));
-    const {data:{subscription}}=sb.auth.onAuthStateChange((_,session)=>setUser(session?.user??null));
+    sb.auth.getSession().then(({data})=>{
+      setUser(data.session?.user??null);
+      if(data.session?.user)fetchRole(data.session.user.email);
+    });
+    const {data:{subscription}}=sb.auth.onAuthStateChange((_,session)=>{
+      setUser(session?.user??null);
+      if(session?.user)fetchRole(session.user.email);
+      else setRole(null);
+    });
     return ()=>subscription.unsubscribe();
   },[]);
+
+  async function fetchRole(email) {
+    const {data}=await sb.from('user_roles').select('role').eq('email',email).single();
+    setRole(data?.role||null);
+  }
 
   useEffect(()=>{load();},[]);
 
   async function load() {
-    const [{data:p},{data:g}]=await Promise.all([
+    const [{data:p},{data:g},{data:s}]=await Promise.all([
       sb.from('players').select('*').order('name'),
-      sb.from('games').select('*').order('created_at',{ascending:false})
+      sb.from('games').select('*').order('created_at',{ascending:false}),
+      sb.from('group_settings').select('*').eq('id',1).single()
     ]);
     setPlayers(p||[]);
     setGames(g||[]);
+    if(s?.group_name)setGroupName(s.group_name);
     setLoading(false);
   }
 
@@ -788,21 +907,33 @@ function App() {
   const updateGame=async(id,data)=>{await sb.from('games').update(data).eq('id',id);await load();};
   const deleteGame=async id=>{await sb.from('games').delete().eq('id',id);await load();};
 
-  const isAdmin=!!user;
+  const isAdmin=role==='admin';
+  const isCaptain=role==='admin'||role==='captain';
+  const roleBadge=role==='admin'?'ADMIN':role==='captain'?'CAPTAIN':null;
+  const badgeColor=role==='admin'?'rgba(255,255,255,0.25)':'rgba(255,220,100,0.35)';
 
   if(loading) return <div className="loading"><span style={{fontSize:32}}>⚽</span>Loading…</div>;
+
+  if(showSettings&&isAdmin) return <div className="app">
+    <div className="header">
+      <div><h1>⚽ Pickup Soccer</h1><p style={{color:'rgba(255,255,255,0.6)',fontSize:11}}>{groupName}</p></div>
+      <span className="admin-badge">ADMIN</span>
+    </div>
+    <Settings role={role} onClose={()=>{setShowSettings(false);load();}}/>
+  </div>;
 
   return <div className="app">
     <div className="header">
       <div>
         <h1>⚽ Pickup Soccer</h1>
-        <p>WESTWOOD CREW</p>
+        <p style={{color:'rgba(255,255,255,0.6)',fontSize:11}}>{groupName.toUpperCase()}</p>
       </div>
       <div style={{display:'flex',alignItems:'center',gap:8}}>
-        {isAdmin&&<span className="admin-badge">ADMIN</span>}
-        {isAdmin
+        {roleBadge&&<span className="admin-badge" style={{background:badgeColor}}>{roleBadge}</span>}
+        {isAdmin&&<button className="hdr-btn" onClick={()=>setShowSettings(true)}>⚙️</button>}
+        {user
           ?<button className="hdr-btn" onClick={()=>sb.auth.signOut()}>Logout</button>
-          :<button className="hdr-btn" onClick={()=>setShowLogin(true)}>Admin Login</button>
+          :<button className="hdr-btn" onClick={()=>setShowLogin(true)}>Login</button>
         }
       </div>
     </div>
@@ -811,9 +942,9 @@ function App() {
         <button key={v} className={view===v?'active':''} onClick={()=>setView(v)}>{l}</button>
       ))}
     </nav>
-    {view==='roster'&&<Roster players={players} isAdmin={isAdmin} onAdd={addPlayer} onUpdate={updatePlayer} onDelete={deletePlayer}/>}
-    {view==='game'&&<Game players={players} isAdmin={isAdmin} onSaveGame={saveGame} games={games}/>}
-    {view==='history'&&<History games={games} players={players} isAdmin={isAdmin} onUpdateGame={updateGame} onDeleteGame={deleteGame}/>}
+    {view==='roster'&&<Roster players={players} isAdmin={isCaptain} canDelete={isAdmin} onAdd={addPlayer} onUpdate={updatePlayer} onDelete={deletePlayer}/>}
+    {view==='game'&&<Game players={players} isAdmin={isCaptain} onSaveGame={saveGame} games={games}/>}
+    {view==='history'&&<History games={games} players={players} isAdmin={isCaptain} canDelete={isAdmin} onUpdateGame={updateGame} onDeleteGame={deleteGame}/>}
     {showLogin&&<LoginModal onClose={()=>setShowLogin(false)}/>}
   </div>;
 }
