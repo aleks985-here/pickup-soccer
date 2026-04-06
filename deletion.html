@@ -16,13 +16,21 @@ h2 { font-size: 17px; font-weight: 700; margin: 28px 0 10px; color: #2d5509; }
 p { margin-bottom: 14px; font-size: 15px; }
 ol { margin: 0 0 14px 20px; font-size: 15px; }
 ol li { margin-bottom: 10px; }
-.step { background: #fff; border: 1px solid #e0e0e0; border-radius: 12px; padding: 20px 24px; margin-bottom: 12px; display: flex; gap: 16px; align-items: flex-start; }
-.step-num { background: #2d5509; color: #fff; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; flex-shrink: 0; margin-top: 2px; }
-.step-text strong { display: block; font-size: 15px; margin-bottom: 4px; }
-.step-text span { font-size: 14px; color: #666; }
-.contact-box { background: #eaf5e0; border: 1px solid #a8d87a; border-radius: 10px; padding: 20px 24px; margin-top: 28px; }
 .back { display: inline-flex; align-items: center; gap: 6px; color: #2d5509; text-decoration: none; font-size: 14px; font-weight: 500; margin-bottom: 24px; }
-.tag { display: inline-block; background: #fef6e4; border: 1px solid #f0c060; border-radius: 6px; padding: 2px 10px; font-size: 13px; font-weight: 600; color: #7a4d00; margin-left: 6px; }
+.form-card { background: #fff; border: 1px solid #e0e0e0; border-radius: 12px; padding: 24px; margin: 20px 0; }
+.form-card label { font-size: 13px; color: #555; display: block; margin-bottom: 5px; font-weight: 500; }
+.form-card input, .form-card textarea, .form-card select { width: 100%; padding: 10px 13px; border: 1px solid #ccc; border-radius: 8px; font-size: 14px; font-family: inherit; color: #1a1a1a; background: #fff; outline: none; margin-bottom: 16px; }
+.form-card input:focus, .form-card textarea:focus { border-color: #2d5509; box-shadow: 0 0 0 2px rgba(45,85,9,0.1); }
+.form-card textarea { height: 100px; resize: vertical; }
+.submit-btn { background: #2d5509; color: #fff; border: none; border-radius: 8px; padding: 12px 28px; font-size: 15px; font-weight: 600; cursor: pointer; width: 100%; }
+.submit-btn:hover { background: #1e3a06; }
+.submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.success { background: #eaf5e0; border: 1px solid #a8d87a; border-radius: 10px; padding: 20px; text-align: center; display: none; }
+.success h3 { color: #2d5509; margin-bottom: 8px; }
+.info-box { background: #fff; border: 1px solid #e0e0e0; border-radius: 10px; padding: 16px 20px; margin-bottom: 12px; display: flex; gap: 14px; align-items: flex-start; }
+.step-num { background: #2d5509; color: #fff; border-radius: 50%; width: 30px; height: 30px; min-width: 30px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; margin-top: 2px; }
+.step-text strong { display: block; font-size: 14px; margin-bottom: 3px; }
+.step-text span { font-size: 13px; color: #666; }
 </style>
 </head>
 <body>
@@ -31,58 +39,75 @@ ol li { margin-bottom: 10px; }
   <a href="/" class="back">← Back to app</a>
 
   <h1>Data Deletion Request</h1>
-  <p class="sub">How to request deletion of your personal data from Pickup Soccer</p>
+  <p class="sub">Request deletion of your personal data from Pickup Soccer</p>
 
-  <p>You have the right to request deletion of all personal data we hold about you. This includes your name, email address, position preferences, and game history records.</p>
-  <p>We will process all deletion requests within <strong>30 days</strong> and send you a confirmation email when complete.</p>
+  <p>You have the right to request deletion of all personal data we hold about you — your name, email, position preferences, and game history records. We process all requests within <strong>30 days</strong> and send a confirmation when complete.</p>
 
-  <h2>How to request deletion</h2>
+  <h2>Submit your request</h2>
 
-  <div class="step">
-    <div class="step-num">1</div>
-    <div class="step-text">
-      <strong>Send an email to <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="bddcd1d8c5fdd9cbd2cfd3d4d6d2cb93cdcfd2">[email&#160;protected]</a></strong>
-      <span>Use the subject line: "Data Deletion Request — Pickup Soccer"</span>
+  <div class="form-card">
+    <form id="deletion-form" action="https://formspree.io/f/xkopkraq" method="POST">
+      <input type="hidden" name="_subject" value="Data Deletion Request — Pickup Soccer"/>
+      <input type="hidden" name="form_type" value="Data Deletion Request"/>
+
+      <label for="name">Your name (as it appears in the app)</label>
+      <input type="text" id="name" name="name" required placeholder="e.g. Alex Groshev"/>
+
+      <label for="email">Email you used to sign in</label>
+      <input type="email" id="email" name="email" required placeholder="your@email.com"/>
+
+      <label for="login_method">How did you sign in?</label>
+      <select id="login_method" name="login_method">
+        <option value="">Select login method</option>
+        <option value="Google">Google</option>
+        <option value="Facebook">Facebook</option>
+        <option value="Email/Password">Email and password</option>
+      </select>
+
+      <label for="notes">Anything else we should know (optional)</label>
+      <textarea id="notes" name="notes" placeholder="e.g. I also have a guest account under a different name"></textarea>
+
+      <button type="submit" class="submit-btn" id="submit-btn">Submit deletion request</button>
+    </form>
+
+    <div class="success" id="success-msg">
+      <h3>Request received ✓</h3>
+      <p>We'll confirm within 5 business days and complete the deletion within 30 days. Check your inbox for a confirmation email.</p>
     </div>
   </div>
 
-  <div class="step">
-    <div class="step-num">2</div>
-    <div class="step-text">
-      <strong>Include your information</strong>
-      <span>Your name as it appears in the app, and the email address you used to sign in (Google, Facebook, or email/password).</span>
-    </div>
-  </div>
-
-  <div class="step">
-    <div class="step-num">3</div>
-    <div class="step-text">
-      <strong>We confirm and delete</strong>
-      <span>We will reply within 5 business days to confirm receipt, and complete the deletion within 30 days. You will receive a final confirmation when done.</span>
-    </div>
-  </div>
-
-  <h2>What gets deleted</h2>
-  <p>Upon a confirmed deletion request, we will remove:</p>
-  <ol>
-    <li>Your authentication account (email, login method)</li>
-    <li>Your player profile (name, position preferences, skill rating)</li>
-    <li>Your attendance records from game history</li>
-    <li>Any role assignments (captain, admin)</li>
-  </ol>
-
-  <h2>What we cannot delete</h2>
-  <p>Game results and team compositions from past games may be retained in anonymized form (team scores, number of players) as part of group history. Your name will be removed from all team records.</p>
+  <h2>What happens after you submit</h2>
+  <div class="info-box"><div class="step-num">1</div><div class="step-text"><strong>We confirm receipt</strong><span>You'll receive an email confirmation within 5 business days.</span></div></div>
+  <div class="info-box"><div class="step-num">2</div><div class="step-text"><strong>We delete your data</strong><span>Your account, player profile, and personal records are removed within 30 days.</span></div></div>
+  <div class="info-box"><div class="step-num">3</div><div class="step-text"><strong>Final confirmation</strong><span>We send a final email confirming deletion is complete.</span></div></div>
 
   <h2>If you signed in with Facebook</h2>
-  <p>You can also revoke the app's access to your Facebook account directly from Facebook:</p>
-  <ol>
-    <li>Go to your Facebook account Settings</li>
-    <li>Click <strong>Security and Login</strong> → <strong>Apps and Websites</strong></li>
-    <li>Find <strong>Pickup Soccer</strong> → click <strong>Remove</strong></li>
-  </ol>
-  <p>Revoking Facebook access removes the login connection. To also delete your data from our servers, please send us an email as described above.</p>
+  <p>You can also revoke the app's access directly in Facebook: Settings → Security and Login → Apps and Websites → find Pickup Soccer → Remove. This removes the login connection but you still need to submit this form to delete your data from our servers.</p>
+</div>
 
-  <div class="contact-box">
-    <strong style="display:block;margin-bottom:8px;font-size:15px;">Contact for data requests</strong>
-    <p style="margin-bottom:4px">Email: <a href="/cdn-cgi/l/email-protection#c9a8a5acb189adbfa6bba7a0a2a6bfe7b9bba6"><strong><span class="__cf_email__" data-cfemail="e5
+<script>
+document.getElementById('deletion-form').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'Submitting…';
+  const data = new FormData(this);
+  try {
+    const res = await fetch(this.action, { method: 'POST', body: data, headers: { Accept: 'application/json' } });
+    if (res.ok) {
+      this.style.display = 'none';
+      document.getElementById('success-msg').style.display = 'block';
+    } else {
+      btn.disabled = false;
+      btn.textContent = 'Submit deletion request';
+      alert('Something went wrong. Please try again.');
+    }
+  } catch {
+    btn.disabled = false;
+    btn.textContent = 'Submit deletion request';
+    alert('Something went wrong. Please try again.');
+  }
+});
+</script>
+</body>
+</html>
