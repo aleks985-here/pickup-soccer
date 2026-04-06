@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/privacy", "destination": "/privacy.html" },
+    { "source": "/deletion", "destination": "/deletion.html" }
+  ]
+}
