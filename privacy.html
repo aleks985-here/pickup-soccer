@@ -3,23 +3,34 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Privacy Policy — Pickup Soccer</title>
+<title>Data Deletion — Pickup Soccer</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: system-ui, -apple-system, sans-serif; background: #f5f5f0; color: #1a1a1a; line-height: 1.7; }
 .wrap { max-width: 680px; margin: 0 auto; padding: 40px 20px 80px; }
-.logo { display: flex; align-items: center; gap: 10px; margin-bottom: 40px; text-decoration: none; color: #1a1a1a; }
+a.logo { display: flex; align-items: center; gap: 10px; margin-bottom: 40px; text-decoration: none; color: #1a1a1a; }
 .logo span { font-size: 20px; font-weight: 700; }
 h1 { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
-.date { font-size: 13px; color: #888; margin-bottom: 32px; }
+.sub { font-size: 15px; color: #666; margin-bottom: 32px; }
 h2 { font-size: 17px; font-weight: 700; margin: 28px 0 10px; color: #2d5509; }
 p { margin-bottom: 14px; font-size: 15px; }
-ul { margin: 0 0 14px 20px; font-size: 15px; }
-ul li { margin-bottom: 6px; }
-a { color: #2d5509; }
-.card { background: #fff; border: 1px solid #e0e0e0; border-radius: 12px; padding: 20px 24px; margin-bottom: 16px; }
+ol { margin: 0 0 14px 20px; font-size: 15px; }
+ol li { margin-bottom: 10px; }
 .back { display: inline-flex; align-items: center; gap: 6px; color: #2d5509; text-decoration: none; font-size: 14px; font-weight: 500; margin-bottom: 24px; }
-.contact-box { background: #eaf5e0; border: 1px solid #a8d87a; border-radius: 10px; padding: 16px 20px; margin-top: 24px; }
+.form-card { background: #fff; border: 1px solid #e0e0e0; border-radius: 12px; padding: 24px; margin: 20px 0; }
+.form-card label { font-size: 13px; color: #555; display: block; margin-bottom: 5px; font-weight: 500; }
+.form-card input, .form-card textarea, .form-card select { width: 100%; padding: 10px 13px; border: 1px solid #ccc; border-radius: 8px; font-size: 14px; font-family: inherit; color: #1a1a1a; background: #fff; outline: none; margin-bottom: 16px; }
+.form-card input:focus, .form-card textarea:focus { border-color: #2d5509; box-shadow: 0 0 0 2px rgba(45,85,9,0.1); }
+.form-card textarea { height: 100px; resize: vertical; }
+.submit-btn { background: #2d5509; color: #fff; border: none; border-radius: 8px; padding: 12px 28px; font-size: 15px; font-weight: 600; cursor: pointer; width: 100%; }
+.submit-btn:hover { background: #1e3a06; }
+.submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.success { background: #eaf5e0; border: 1px solid #a8d87a; border-radius: 10px; padding: 20px; text-align: center; display: none; }
+.success h3 { color: #2d5509; margin-bottom: 8px; }
+.info-box { background: #fff; border: 1px solid #e0e0e0; border-radius: 10px; padding: 16px 20px; margin-bottom: 12px; display: flex; gap: 14px; align-items: flex-start; }
+.step-num { background: #2d5509; color: #fff; border-radius: 50%; width: 30px; height: 30px; min-width: 30px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; margin-top: 2px; }
+.step-text strong { display: block; font-size: 14px; margin-bottom: 3px; }
+.step-text span { font-size: 13px; color: #666; }
 </style>
 </head>
 <body>
@@ -27,80 +38,76 @@ a { color: #2d5509; }
   <a href="/" class="logo">⚽ <span>Pickup Soccer</span></a>
   <a href="/" class="back">← Back to app</a>
 
-  <h1>Privacy Policy</h1>
-  <p class="date">Last updated: April 5, 2026</p>
+  <h1>Data Deletion Request</h1>
+  <p class="sub">Request deletion of your personal data from Pickup Soccer</p>
 
-  <div class="card">
-    <p>Pickup Soccer ("the App") is operated by Alex Dvornikov ("we", "us", "our"). This policy explains what information we collect, how we use it, and your rights regarding your data.</p>
-    <p>By using the App, you agree to the collection and use of information as described in this policy.</p>
+  <p>You have the right to request deletion of all personal data we hold about you — your name, email, position preferences, and game history records. We process all requests within <strong>30 days</strong> and send a confirmation when complete.</p>
+
+  <h2>Submit your request</h2>
+
+  <div class="form-card">
+    <form id="deletion-form" action="https://formspree.io/f/xkopkraq" method="POST">
+      <input type="hidden" name="_subject" value="Data Deletion Request — Pickup Soccer"/>
+      <input type="hidden" name="form_type" value="Data Deletion Request"/>
+
+      <label for="name">Your name (as it appears in the app)</label>
+      <input type="text" id="name" name="name" required placeholder="e.g. Alex Groshev"/>
+
+      <label for="email">Email you used to sign in</label>
+      <input type="email" id="email" name="email" required placeholder="your@email.com"/>
+
+      <label for="login_method">How did you sign in?</label>
+      <select id="login_method" name="login_method">
+        <option value="">Select login method</option>
+        <option value="Google">Google</option>
+        <option value="Facebook">Facebook</option>
+        <option value="Email/Password">Email and password</option>
+      </select>
+
+      <label for="notes">Anything else we should know (optional)</label>
+      <textarea id="notes" name="notes" placeholder="e.g. I also have a guest account under a different name"></textarea>
+
+      <button type="submit" class="submit-btn" id="submit-btn">Submit deletion request</button>
+    </form>
+
+    <div class="success" id="success-msg">
+      <h3>Request received ✓</h3>
+      <p>We'll confirm within 5 business days and complete the deletion within 30 days. Check your inbox for a confirmation email.</p>
+    </div>
   </div>
 
-  <h2>What we collect</h2>
-  <ul>
-    <li><strong>Name</strong> — to identify you in the team roster and team sheets</li>
-    <li><strong>Email address</strong> — used for authentication (login) only</li>
-    <li><strong>Profile photo</strong> — if provided by your Google or Facebook login, used as your avatar</li>
-    <li><strong>Position preferences</strong> — the positions you prefer to play (GK, DEF, MID, FWD)</li>
-    <li><strong>Game attendance records</strong> — which games you attended, which team you were on</li>
-  </ul>
-  <p>We do not collect your phone number, location, financial information, or any sensitive personal data.</p>
+  <h2>What happens after you submit</h2>
+  <div class="info-box"><div class="step-num">1</div><div class="step-text"><strong>We confirm receipt</strong><span>You'll receive an email confirmation within 5 business days.</span></div></div>
+  <div class="info-box"><div class="step-num">2</div><div class="step-text"><strong>We delete your data</strong><span>Your account, player profile, and personal records are removed within 30 days.</span></div></div>
+  <div class="info-box"><div class="step-num">3</div><div class="step-text"><strong>Final confirmation</strong><span>We send a final email confirming deletion is complete.</span></div></div>
 
-  <h2>What we do NOT collect</h2>
-  <ul>
-    <li>We do not collect payment information</li>
-    <li>We do not track your location</li>
-    <li>We do not use cookies beyond what is necessary for authentication</li>
-    <li>We do not sell, rent, or share your data with third parties for marketing</li>
-    <li>We do not show you ads</li>
-  </ul>
-
-  <h2>How we use your information</h2>
-  <ul>
-    <li>To display your name and position on team sheets visible to other group members</li>
-    <li>To balance teams fairly based on skill level (skill ratings are only visible to group admins and captains — never to other players)</li>
-    <li>To keep a history of past games for your group</li>
-    <li>To authenticate your login via Google, Facebook, or email/password</li>
-  </ul>
-
-  <h2>Who can see your information</h2>
-  <ul>
-    <li><strong>Your name and position</strong> — visible to all members of your group and anyone with the link to the team page</li>
-    <li><strong>Your skill rating</strong> — visible only to group admins and captains, never to other players or the public</li>
-    <li><strong>Your email address</strong> — visible only to the group admin, never displayed publicly</li>
-  </ul>
-
-  <h2>Third-party services</h2>
-  <p>The App uses the following third-party services:</p>
-  <ul>
-    <li><strong>Supabase</strong> — database and authentication. <a href="https://supabase.com/privacy" target="_blank">Supabase Privacy Policy</a></li>
-    <li><strong>Vercel</strong> — web hosting. <a href="https://vercel.com/legal/privacy-policy" target="_blank">Vercel Privacy Policy</a></li>
-    <li><strong>Google OAuth</strong> — optional login method. <a href="https://policies.google.com/privacy" target="_blank">Google Privacy Policy</a></li>
-    <li><strong>Facebook Login</strong> — optional login method. <a href="https://www.facebook.com/policy.php" target="_blank">Meta Privacy Policy</a></li>
-  </ul>
-  <p>When you use Google or Facebook to log in, those services may collect data according to their own privacy policies.</p>
-
-  <h2>Data retention</h2>
-  <p>Your data is retained as long as your group is active and you are a member. If you request deletion of your account, your personal information will be removed within 30 days.</p>
-
-  <h2>Your rights</h2>
-  <ul>
-    <li><strong>Access</strong> — you can request a copy of your personal data at any time</li>
-    <li><strong>Correction</strong> — you can update your name and position preferences in the app</li>
-    <li><strong>Deletion</strong> — you can request full deletion of your account and data</li>
-    <li><strong>Portability</strong> — you can request an export of your data</li>
-  </ul>
-
-  <h2>Children's privacy</h2>
-  <p>The App is not directed at children under the age of 13. We do not knowingly collect personal information from children under 13. If you believe a child has provided us with personal information, please contact us and we will delete it.</p>
-
-  <h2>Changes to this policy</h2>
-  <p>We may update this policy from time to time. The date at the top of this page reflects when it was last updated. Continued use of the App after changes constitutes acceptance of the updated policy.</p>
-
-  <div class="contact-box">
-    <h2 style="margin-top:0">Contact us</h2>
-    <p style="margin-bottom:0">For any privacy questions or to request data deletion, contact us at:<br>
-    <strong><a href="mailto:alex@dvornikov.pro">alex@dvornikov.pro</a></strong></p>
-  </div>
+  <h2>If you signed in with Facebook</h2>
+  <p>You can also revoke the app's access directly in Facebook: Settings → Security and Login → Apps and Websites → find Pickup Soccer → Remove. This removes the login connection but you still need to submit this form to delete your data from our servers.</p>
 </div>
+
+<script>
+document.getElementById('deletion-form').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'Submitting…';
+  const data = new FormData(this);
+  try {
+    const res = await fetch(this.action, { method: 'POST', body: data, headers: { Accept: 'application/json' } });
+    if (res.ok) {
+      this.style.display = 'none';
+      document.getElementById('success-msg').style.display = 'block';
+    } else {
+      btn.disabled = false;
+      btn.textContent = 'Submit deletion request';
+      alert('Something went wrong. Please try again.');
+    }
+  } catch {
+    btn.disabled = false;
+    btn.textContent = 'Submit deletion request';
+    alert('Something went wrong. Please try again.');
+  }
+});
+</script>
 </body>
 </html>
