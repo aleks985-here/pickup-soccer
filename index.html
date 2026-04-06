@@ -642,7 +642,6 @@ function AdjustGame({game,players,onSave,onClose}) {
   const getName=p=>typeof p==='string'?p:p.name;
   const getPos=p=>typeof p==='string'?[]:p.positions||[];
 
-  // Convert saved teams to editable format - look up player data where possible
   const hydrate=t=>t.map(p=>{
     const name=getName(p);
     const found=players.find(pl=>pl.name===name);
@@ -651,36 +650,76 @@ function AdjustGame({game,players,onSave,onClose}) {
 
   const [teams,setTeams]=useState(()=>(game.teams||[]).map(hydrate));
   const [busy,setBusy]=useState(false);
-  const [moveMode,setMoveMode]=useState(null); // {player, fromTeam}
+  const [dragSrc,setDragSrc]=useState(null); // {player, fromTeam}
+  const [dragOver,setDragOver]=useState(null); // {toTeam, toIdx}
 
-  const allPlayers=teams.flat();
   const avg=t=>t.length?(t.reduce((s,p)=>s+p.skill,0)/t.length).toFixed(1):'0';
+  const n=teams.length;
 
-  const selectPlayer=(player,fromTeam)=>{
-    if(!moveMode){setMoveMode({player,fromTeam});return;}
-    // If same player clicked again, deselect
-    if(moveMode.player.id===player.id){setMoveMode(null);return;}
-    // Swap the two players
+  // Reshuffle using all currently assigned players
+  const reshuffle=()=>{
+    const all=teams.flat();
+    const sorted=[...all].sort((a,b)=>b.skill-a.skill);
+    const gks=sorted.filter(p=>(p.positions||[]).includes('GK'));
+    const rest=sorted.filter(p=>!gks.slice(0,n).includes(p));
+    const next=Array.from({length:n},()=>[]);
+    gks.slice(0,n).forEach((g,i)=>next[i].push(g));
+    rest.forEach((p,i)=>{const pass=Math.floor(i/n),pos=i%n;next[pass%2===0?pos:(n-1-pos)].push(p);});
+    // Swap optimization
+    const avgS=t=>t.length?t.reduce((s,p)=>s+p.skill,0)/t.length:0;
+    for(let iter=0;iter<40;iter++){
+      let best=0,si=-1,sj=-1,sti=-1,stj=-1;
+      for(let ti=0;ti<n;ti++)for(let tj=ti+1;tj<n;tj++)for(let i=0;i<next[ti].length;i++)for(let j=0;j<next[tj].length;j++){
+        const cur=Math.abs(avgS(next[ti])-avgS(next[tj]));
+        const ni=[...next[ti].slice(0,i),next[tj][j],...next[ti].slice(i+1)];
+        const nj=[...next[tj].slice(0,j),next[ti][i],...next[tj].slice(j+1)];
+        const nd=Math.abs(avgS(ni)-avgS(nj));
+        if(cur-nd>best){best=cur-nd;si=i;sj=j;sti=ti;stj=tj;}
+      }
+      if(si<0)break;
+      const tmp=next[sti][si];next[sti][si]=next[stj][sj];next[stj][sj]=tmp;
+    }
+    setTeams(next);
+  };
+
+  // Move player to a specific team (appends to end)
+  const moveToTeam=(player,fromTeam,toTeam)=>{
     setTeams(ts=>{
       const next=ts.map(t=>[...t]);
-      const i=next[moveMode.fromTeam].findIndex(p=>p.id===moveMode.player.id);
-      const j=next[fromTeam].findIndex(p=>p.id===player.id);
-      if(moveMode.fromTeam===fromTeam){
-        // same team - just reorder, no real point but allow it
-        next[moveMode.fromTeam][i]=player;
-        next[fromTeam][j]=moveMode.player;
-      } else {
-        next[moveMode.fromTeam][i]=player;
-        next[fromTeam][j]=moveMode.player;
-      }
+      next[fromTeam]=next[fromTeam].filter(p=>p.id!==player.id);
+      next[toTeam]=[...next[toTeam],player];
       return next;
     });
-    setMoveMode(null);
+  };
+
+  // Drag handlers
+  const onDragStart=(p,ti)=>{setDragSrc({player:p,fromTeam:ti});};
+  const onDragEnd=()=>{setDragSrc(null);setDragOver(null);};
+  const onDragOverPlayer=(e,ti,idx)=>{e.preventDefault();setDragOver({toTeam:ti,toIdx:idx});};
+  const onDropOnPlayer=(e,ti,idx)=>{
+    e.preventDefault();
+    if(!dragSrc)return;
+    const{player,fromTeam}=dragSrc;
+    setTeams(ts=>{
+      const next=ts.map(t=>[...t]);
+      // Remove from source
+      next[fromTeam]=next[fromTeam].filter(p=>p.id!==player.id);
+      // Insert at target position (adjust for removal if same team)
+      const insertIdx=fromTeam===ti&&idx>ts[fromTeam].findIndex(p=>p.id===player.id)?idx-1:idx;
+      next[ti].splice(Math.min(insertIdx,next[ti].length),0,player);
+      return next;
+    });
+    setDragSrc(null);setDragOver(null);
+  };
+  const onDropOnTeam=(e,ti)=>{
+    e.preventDefault();
+    if(!dragSrc||dragOver)return; // handled by onDropOnPlayer
+    moveToTeam(dragSrc.player,dragSrc.fromTeam,ti);
+    setDragSrc(null);setDragOver(null);
   };
 
   const removePlayer=(player,fromTeam)=>{
     setTeams(ts=>{const next=ts.map(t=>[...t]);next[fromTeam]=next[fromTeam].filter(p=>p.id!==player.id);return next;});
-    setMoveMode(null);
   };
 
   const saveChanges=async()=>{
@@ -692,30 +731,68 @@ function AdjustGame({game,players,onSave,onClose}) {
     setBusy(false);onClose();
   };
 
+  const tColors=['#1a4f80','#7a4d00','#2a5c0e','#6a1040'];
+
   return <div className="section">
     <div className="hrow">
       <button className="btn sm" onClick={onClose}>← Back</button>
       <span className="page-title">Adjust teams</span>
     </div>
-    <div style={{background:'#fef6e4',border:'1px solid #f0c060',borderRadius:8,padding:'10px 14px',marginBottom:14,fontSize:13}}>
-      <b>How to use:</b> tap a player to select them (turns orange), then tap another player to swap them between teams. Tap ✕ to remove a no-show.
+
+    <div style={{display:'flex',gap:8,marginBottom:12}}>
+      <button className="btn full" style={{background:'#2d5509',color:'#fff',borderColor:'#2d5509',flex:1}} onClick={reshuffle}>↺ Auto-reshuffle</button>
     </div>
-    {moveMode&&<div className="alert amber">Moving: <b>{moveMode.player.name}</b> — tap any player to swap, or tap them again to cancel</div>}
-    {teams.map((team,ti)=><div key={ti} className={`tbox t${ti}`}>
-      <div className="ttitle"><span>TEAM {LABELS[ti]}</span><span style={{fontSize:12,fontWeight:400,opacity:0.65}}>avg ★{avg(team)}</span></div>
-      {team.map(p=>{
-        const isSelected=moveMode&&moveMode.player.id===p.id;
-        return <div key={p.id} className="tplayer" style={{background:isSelected?'rgba(234,162,0,0.15)':'transparent',borderRadius:6,cursor:'pointer'}} onClick={()=>selectPlayer(p,ti)}>
-          <Av name={p.name} size={26}/>
-          <span style={{flex:1,fontWeight:500,color:isSelected?'#7a4d00':'inherit'}}>{p.name}</span>
-          <div style={{display:'flex',gap:3,marginRight:6}}>{(p.positions||['MID']).map(pos=><span key={pos} className={`ptag ${pos}`}>{pos}</span>)}</div>
+
+    <div style={{background:'#f0f8ff',border:'1px solid #b5d4f4',borderRadius:8,padding:'9px 13px',marginBottom:12,fontSize:12,color:'#1a4f80'}}>
+      <b>Drag</b> players between teams, or tap <b>→ A/B</b> buttons to move. Tap <b>✕</b> to remove a no-show.
+    </div>
+
+    {teams.map((team,ti)=><div key={ti} className={`tbox t${ti}`}
+      onDragOver={e=>{e.preventDefault();}}
+      onDrop={e=>onDropOnTeam(e,ti)}
+      style={{minHeight:80}}>
+      <div className="ttitle">
+        <span>TEAM {LABELS[ti]}</span>
+        <span style={{fontSize:12,fontWeight:400,opacity:0.65}}>avg ★{avg(team)} · {team.length}P</span>
+      </div>
+      {team.map((p,pi)=>{
+        const isDragging=dragSrc&&dragSrc.player.id===p.id;
+        const isOver=dragOver&&dragOver.toTeam===ti&&dragOver.toIdx===pi;
+        return <div key={p.id}
+          draggable
+          onDragStart={()=>onDragStart(p,ti)}
+          onDragEnd={onDragEnd}
+          onDragOver={e=>onDragOverPlayer(e,ti,pi)}
+          onDrop={e=>onDropOnPlayer(e,ti,pi)}
+          className="tplayer"
+          style={{
+            opacity:isDragging?0.4:1,
+            cursor:'grab',
+            borderTop:isOver?`2px solid ${tColors[ti]}`:'2px solid transparent',
+            borderRadius:6,
+            transition:'opacity 0.1s'
+          }}>
+          <span style={{color:'#bbb',fontSize:16,marginRight:4,cursor:'grab'}}>⠿</span>
+          <Av name={p.name} size={24}/>
+          <span style={{flex:1,fontWeight:500,fontSize:13}}>{p.name}</span>
+          <div style={{display:'flex',gap:3,marginRight:4}}>
+            {(p.positions||['MID']).map(pos=><span key={pos} className={`ptag ${pos}`}>{pos}</span>)}
+          </div>
           <span style={{fontSize:11,color:'#888',marginRight:6}}>★{p.skill}</span>
-          <button className="btn sm danger" style={{padding:'2px 6px',fontSize:11}} onClick={e=>{e.stopPropagation();removePlayer(p,ti);}}>✕</button>
+          {teams.map((t,tIdx)=>tIdx!==ti&&<button key={tIdx} className="btn sm"
+            style={{padding:'2px 6px',fontSize:10,color:tColors[tIdx],borderColor:tColors[tIdx]+'44',marginRight:2}}
+            onClick={e=>{e.stopPropagation();moveToTeam(p,ti,tIdx);}}>
+            →{LABELS[tIdx]}
+          </button>)}
+          <button className="btn sm danger" style={{padding:'2px 6px',fontSize:11}}
+            onClick={e=>{e.stopPropagation();removePlayer(p,ti);}}>✕</button>
         </div>;
       })}
+      {team.length===0&&<div style={{padding:'12px 0',textAlign:'center',fontSize:13,color:'#999',fontStyle:'italic'}}>Drop players here</div>}
     </div>)}
-    <div className="mbtns">
-      <button className="btn primary full" onClick={saveChanges} disabled={busy}>{busy?'Saving…':'Save changes & republish'}</button>
+
+    <div className="mbtns" style={{marginTop:8}}>
+      <button className="btn primary full" onClick={saveChanges} disabled={busy}>{busy?'Saving…':'Save & republish'}</button>
       <button className="btn" onClick={onClose}>Cancel</button>
     </div>
   </div>;
