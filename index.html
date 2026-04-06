@@ -1126,6 +1126,11 @@ function App() {
     {view==='game'&&<Game players={players} isAdmin={isCaptain} onSaveGame={saveGame} games={games}/>}
     {view==='history'&&<History games={games} players={players} isAdmin={isCaptain} canDelete={isAdmin} onUpdateGame={updateGame} onDeleteGame={deleteGame}/>}
     {showLogin&&<LoginModal onClose={()=>setShowLogin(false)}/>}
+    <div style={{textAlign:'center',padding:'24px 16px 8px',borderTop:'1px solid #e0e0e0',marginTop:8}}>
+      <a href="/privacy" target="_blank" style={{fontSize:12,color:'#888',textDecoration:'none',marginRight:16}}>Privacy Policy</a>
+      <a href="/deletion" target="_blank" style={{fontSize:12,color:'#888',textDecoration:'none',marginRight:16}}>Data Deletion</a>
+      <span style={{fontSize:12,color:'#ccc'}}>soccer.dvornikov.pro</span>
+    </div>
   </div>;
 }
 
