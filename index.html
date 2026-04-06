@@ -594,8 +594,7 @@ function Game({players,onSaveGame,isAdmin,games}) {
       {team.map(p=><div key={p.id} className="tplayer">
         <Av name={p.name} size={26}/>
         <span style={{flex:1,fontWeight:500}}>
-          {p.name}
-          {p.isGuest&&<span style={{fontSize:10,background:'#fef6e4',color:'#7a4d00',border:'1px solid #f0c060',borderRadius:4,padding:'1px 5px',marginLeft:5,fontWeight:700}}>GUEST</span>}
+          {p.name}{p.donor&&<span style={{fontSize:12,marginLeft:4}}>💚</span>}          {p.isGuest&&<span style={{fontSize:10,background:'#fef6e4',color:'#7a4d00',border:'1px solid #f0c060',borderRadius:4,padding:'1px 5px',marginLeft:5,fontWeight:700}}>GUEST</span>}
         </span>
         <div style={{display:'flex',gap:3,flexWrap:'wrap',justifyContent:'flex-end'}}>
           {(p.positions||['MID']).map(pos=><span key={pos} className={`ptag ${pos}`}>{pos}</span>)}
@@ -755,12 +754,15 @@ function History({games,players,isAdmin,canDelete,onUpdateGame,onDeleteGame}) {
   </div>;
 }
 
-function Settings({role,onClose}) {
+function Settings({role,players,onClose}) {
   const [captains,setCaptains]=useState([]);
-  const [newEmail,setNewEmail]=useState('');
   const [settings,setSettings]=useState(null);
   const [busy,setBusy]=useState(false);
   const [msg,setMsg]=useState('');
+  const [addingFor,setAddingFor]=useState(null); // player id being promoted
+  const [emailInput,setEmailInput]=useState('');
+  const [q,setQ]=useState('');
+  const [tab,setTab]=useState('captains'); // captains | group | support
 
   useEffect(()=>{loadSettings();},[]);
 
@@ -770,22 +772,33 @@ function Settings({role,onClose}) {
       sb.from('group_settings').select('*').eq('id',1).single()
     ]);
     setCaptains((r||[]).filter(r=>r.role==='captain'));
-    setSettings(s||{group_name:'Westwood Pickup',game_days:['Sunday','Wednesday'],game_time:'10:00',location:'Westwood'});
+    setSettings(s||{group_name:'Westwood Pickup',game_time:'10:00',location:'Westwood'});
   }
 
-  const addCaptain=async()=>{
-    if(!newEmail.trim())return;
+  const captainEmails=new Set(captains.map(c=>c.player_id));
+  const captainEmailSet=new Set(captains.map(c=>c.email));
+
+  const promotePlayer=async(player)=>{
+    if(!emailInput.trim()){setMsg('Enter their email first.');return;}
     setBusy(true);setMsg('');
-    const {error}=await sb.from('user_roles').insert({email:newEmail.trim().toLowerCase(),role:'captain'});
+    const {error}=await sb.from('user_roles').insert({
+      email:emailInput.trim().toLowerCase(),
+      role:'captain',
+      player_id:player.id
+    });
     if(error)setMsg('Error: '+error.message);
-    else{setNewEmail('');setMsg('Captain added. They need to sign in with this email.');await loadSettings();}
+    else{
+      setMsg(`${player.name} added as captain. They sign in with ${emailInput.trim()}.`);
+      setAddingFor(null);setEmailInput('');
+      await loadSettings();
+    }
     setBusy(false);
   };
 
-  const removeCaptain=async(id)=>{
-    if(!window.confirm('Remove this captain?'))return;
+  const removeCaptain=async(id,name)=>{
+    if(!window.confirm(`Remove captain access for ${name}?`))return;
     await sb.from('user_roles').delete().eq('id',id);
-    await loadSettings();
+    setMsg('Captain removed.');await loadSettings();
   };
 
   const saveSettings=async()=>{
@@ -793,11 +806,15 @@ function Settings({role,onClose}) {
     await sb.from('group_settings').update({
       group_name:settings.group_name,
       game_time:settings.game_time,
-      location:settings.location
+      location:settings.location,
+      donations_enabled:settings.donations_enabled||false,
+      kofi_url:settings.kofi_url||''
     }).eq('id',1);
-    setMsg('Settings saved.');setBusy(false);
-    setTimeout(()=>setMsg(''),3000);
+    setMsg('Saved.');setBusy(false);setTimeout(()=>setMsg(''),3000);
   };
+
+  const filteredPlayers=players.filter(p=>p.name.toLowerCase().includes(q.toLowerCase()));
+  const captainPlayers=captains.map(c=>({...c,player:players.find(p=>p.id===c.player_id)}));
 
   return <div className="section">
     <div className="hrow">
@@ -805,55 +822,124 @@ function Settings({role,onClose}) {
       <button className="btn sm" onClick={onClose}>← Back</button>
     </div>
 
-    <div style={{fontSize:11,fontWeight:700,color:'#888',letterSpacing:'0.5px',marginBottom:8,textTransform:'uppercase'}}>Group</div>
-    <div className="card-wrap" style={{padding:'14px'}}>
-      <div className="field">
-        <label>Group name</label>
-        <input value={settings?.group_name||''} onChange={e=>setSettings(s=>({...s,group_name:e.target.value}))}/>
-      </div>
-      <div className="field">
-        <label>Default game time</label>
-        <input type="time" value={settings?.game_time||'10:00'} onChange={e=>setSettings(s=>({...s,game_time:e.target.value}))}/>
-      </div>
-      <div className="field" style={{marginBottom:0}}>
-        <label>Location</label>
-        <input value={settings?.location||''} onChange={e=>setSettings(s=>({...s,location:e.target.value}))} placeholder="e.g. Westwood Fields"/>
-      </div>
-      <button className="btn primary full" style={{marginTop:14}} onClick={saveSettings} disabled={busy}>Save group settings</button>
+    <div style={{display:'flex',gap:8,marginBottom:16}}>
+      {[['captains','👥 Captains'],['group','⚙️ Group']].map(([t,l])=>(
+        <button key={t} className={`btn sm${tab===t?' primary':''}`} onClick={()=>setTab(t)} style={{flex:1,justifyContent:'center'}}>{l}</button>
+      ))}
+      {settings?.donations_enabled&&<button className={`btn sm${tab==='support'?' primary':''}`} onClick={()=>setTab('support')} style={{flex:1,justifyContent:'center'}}>💚 Support</button>}
     </div>
 
-    <div style={{fontSize:11,fontWeight:700,color:'#888',letterSpacing:'0.5px',marginBottom:8,marginTop:20,textTransform:'uppercase'}}>Captains</div>
-    <div style={{fontSize:12,color:'#888',marginBottom:10}}>Captains can edit player ratings and positions, generate teams, and record scores. They cannot delete players or change settings.</div>
-
-    <div className="card-wrap" style={{padding:'14px',marginBottom:12}}>
-      <label>Add captain by email</label>
-      <div style={{display:'flex',gap:8,marginTop:4}}>
-        <input value={newEmail} onChange={e=>setNewEmail(e.target.value)} placeholder="captain@email.com" type="email" onKeyDown={e=>e.key==='Enter'&&addCaptain()}/>
-        <button className="btn primary" style={{flexShrink:0}} onClick={addCaptain} disabled={busy||!newEmail.trim()}>Add</button>
+    {tab==='captains'&&<>
+      <div style={{fontSize:13,color:'#666',marginBottom:12,lineHeight:1.5}}>
+        Captains can edit player ratings and positions, generate and adjust teams, and record scores. They can't delete players or access settings.
       </div>
-    </div>
 
-    {captains.length===0
-      ?<div style={{padding:'16px',textAlign:'center',color:'#888',fontSize:13,background:'#fff',borderRadius:12,border:'1px solid #e0e0e0'}}>No captains yet</div>
-      :<div className="card-wrap">
-        {captains.map(c=><div key={c.id} className="prow">
-          <div style={{width:34,height:34,borderRadius:'50%',background:'#e8f2fc',color:'#1a4f80',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,fontSize:13,flexShrink:0}}>C</div>
-          <div style={{flex:1,minWidth:0}}>
-            <div style={{fontWeight:600,fontSize:14}}>{c.email}</div>
-            <div style={{fontSize:11,color:'#888',marginTop:2}}>Captain · added {new Date(c.created_at).toLocaleDateString()}</div>
+      {captainPlayers.length>0&&<>
+        <div style={{fontSize:11,fontWeight:700,color:'#888',letterSpacing:'0.5px',marginBottom:8,textTransform:'uppercase'}}>Current captains</div>
+        <div className="card-wrap" style={{marginBottom:16}}>
+          {captainPlayers.map(c=><div key={c.id} className="prow">
+            <div style={{width:34,height:34,borderRadius:'50%',background:'#e8f2fc',color:'#1a4f80',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,fontSize:12,flexShrink:0}}>
+              {c.player?c.player.name.slice(0,2).toUpperCase():'C'}
+            </div>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontWeight:600,fontSize:14}}>{c.player?c.player.name:c.email}</div>
+              <div style={{fontSize:11,color:'#888',marginTop:1}}>{c.email}</div>
+            </div>
+            <button className="btn sm danger" onClick={()=>removeCaptain(c.id,c.player?.name||c.email)}>Remove</button>
+          </div>)}
+        </div>
+      </>}
+
+      <div style={{fontSize:11,fontWeight:700,color:'#888',letterSpacing:'0.5px',marginBottom:8,textTransform:'uppercase'}}>Add captain from roster</div>
+      <div style={{marginBottom:10}}><input value={q} onChange={e=>setQ(e.target.value)} placeholder="🔍  Search players…"/></div>
+      <div className="card-wrap">
+        {filteredPlayers.map(p=>{
+          const isAlready=captains.some(c=>c.player_id===p.id);
+          const isAdding=addingFor===p.id;
+          return <div key={p.id}>
+            <div className="prow">
+              <Av name={p.name} size={32}/>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontWeight:600,fontSize:14}}>{p.name}</div>
+                <div style={{display:'flex',gap:4,marginTop:2}}>{(p.positions||['MID']).map(pos=><span key={pos} className={`ptag ${pos}`}>{pos}</span>)}</div>
+              </div>
+              {isAlready
+                ?<span style={{fontSize:11,fontWeight:700,color:'#1a4f80',background:'#e8f2fc',padding:'3px 8px',borderRadius:8}}>Captain ✓</span>
+                :<button className="btn sm" style={{color:'#1a4f80',borderColor:'#b5d4f4'}} onClick={()=>{setAddingFor(isAdding?null:p.id);setEmailInput('');}}>
+                  {isAdding?'Cancel':'+ Captain'}
+                </button>
+              }
+            </div>
+            {isAdding&&<div style={{padding:'8px 0 12px 42px',borderBottom:'1px solid #f0f0f0'}}>
+              <div style={{fontSize:12,color:'#666',marginBottom:6}}>What email will <b>{p.name}</b> use to sign in?</div>
+              <div style={{display:'flex',gap:8}}>
+                <input type="email" value={emailInput} onChange={e=>setEmailInput(e.target.value)} placeholder="their@email.com" onKeyDown={e=>e.key==='Enter'&&promotePlayer(p)} autoFocus style={{fontSize:13}}/>
+                <button className="btn primary sm" onClick={()=>promotePlayer(p)} disabled={busy||!emailInput.trim()}>Save</button>
+              </div>
+            </div>}
+          </div>;
+        })}
+      </div>
+    </>}
+
+    {tab==='group'&&<>
+      <div className="card-wrap" style={{padding:'14px'}}>
+        <div className="field"><label>Group name</label><input value={settings?.group_name||''} onChange={e=>setSettings(s=>({...s,group_name:e.target.value}))}/></div>
+        <div className="field"><label>Default game time</label><input type="time" value={settings?.game_time||'10:00'} onChange={e=>setSettings(s=>({...s,game_time:e.target.value}))}/></div>
+        <div className="field"><label>Location</label><input value={settings?.location||''} onChange={e=>setSettings(s=>({...s,location:e.target.value}))} placeholder="e.g. Westwood Fields"/></div>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 0',borderTop:'1px solid #f0f0f0',marginTop:4}}>
+          <div>
+            <div style={{fontSize:14,fontWeight:500}}>Donation / support feature</div>
+            <div style={{fontSize:12,color:'#888',marginTop:2}}>Show a Support tab and donor icons next to player names</div>
           </div>
-          <button className="btn sm danger" onClick={()=>removeCaptain(c.id)}>Remove</button>
+          <div onClick={()=>setSettings(s=>({...s,donations_enabled:!s?.donations_enabled}))}
+            style={{width:44,height:24,borderRadius:12,background:settings?.donations_enabled?'#2d5509':'#ccc',cursor:'pointer',position:'relative',flexShrink:0,transition:'background 0.2s'}}>
+            <div style={{width:20,height:20,borderRadius:'50%',background:'#fff',position:'absolute',top:2,left:settings?.donations_enabled?22:2,transition:'left 0.2s'}}/>
+          </div>
+        </div>
+        <button className="btn primary full" style={{marginTop:14}} onClick={saveSettings} disabled={busy}>Save</button>
+      </div>
+      <div style={{fontSize:11,fontWeight:700,color:'#888',letterSpacing:'0.5px',marginBottom:8,marginTop:20,textTransform:'uppercase'}}>Your account</div>
+      <div className="card-wrap" style={{padding:'14px'}}>
+        <div style={{fontSize:13,color:'#555',marginBottom:12}}>Signed in as admin. Only you can access settings, add captains, and delete players.</div>
+        <button className="btn danger full" onClick={()=>sb.auth.signOut()}>Sign out</button>
+      </div>
+    </>}
+
+    {tab==='support'&&settings?.donations_enabled&&<>
+      <div style={{background:'#f0faf0',border:'1px solid #a8d87a',borderRadius:12,padding:'20px',marginBottom:16,textAlign:'center'}}>
+        <div style={{fontSize:28,marginBottom:8}}>💚</div>
+        <div style={{fontWeight:700,fontSize:16,marginBottom:6}}>Support Pickup Soccer</div>
+        <div style={{fontSize:13,color:'#555',lineHeight:1.6,marginBottom:16}}>
+          This app is free and will stay free. A small donation helps keep it running and build new features.
+        </div>
+        <a href={settings?.kofi_url||'https://ko-fi.com'} target="_blank" style={{display:'inline-block',background:'#29abe0',color:'#fff',padding:'10px 24px',borderRadius:8,fontWeight:600,fontSize:14,textDecoration:'none',marginBottom:8}}>
+          ☕ Support on Ko-fi
+        </a>
+        <div style={{fontSize:11,color:'#888',marginTop:8}}>$10–20 one-time · No pressure</div>
+      </div>
+      <div style={{fontSize:11,fontWeight:700,color:'#888',letterSpacing:'0.5px',marginBottom:8,textTransform:'uppercase'}}>Ko-fi link</div>
+      <div className="card-wrap" style={{padding:'14px',marginBottom:16}}>
+        <label>Your Ko-fi URL</label>
+        <div style={{display:'flex',gap:8,marginTop:4}}>
+          <input value={settings?.kofi_url||''} onChange={e=>setSettings(s=>({...s,kofi_url:e.target.value}))} placeholder="https://ko-fi.com/yourname"/>
+          <button className="btn primary" style={{flexShrink:0}} onClick={saveSettings} disabled={busy}>Save</button>
+        </div>
+      </div>
+      <div style={{fontSize:11,fontWeight:700,color:'#888',letterSpacing:'0.5px',marginBottom:8,textTransform:'uppercase'}}>Donor acknowledgments</div>
+      <div className="card-wrap" style={{padding:'4px 14px'}}>
+        {players.map(p=><div key={p.id} className="prow">
+          <Av name={p.name} size={28}/>
+          <span style={{flex:1,fontSize:13,fontWeight:500}}>{p.name}</span>
+          <button className="btn sm" style={{background:p.donor?'#f0faf0':'none',borderColor:p.donor?'#a8d87a':'#ccc',color:p.donor?'#2d5509':'#888'}}
+            onClick={async()=>{await sb.from('players').update({donor:!p.donor}).eq('id',p.id);window.location.reload();}}>
+            {p.donor?'💚 Donor':'Mark donor'}
+          </button>
         </div>)}
       </div>
-    }
+    </>}
 
     {msg&&<div className={`alert ${msg.startsWith('Error')?'red':'green'}`} style={{marginTop:12}}>{msg}</div>}
-
-    <div style={{fontSize:11,fontWeight:700,color:'#888',letterSpacing:'0.5px',marginBottom:8,marginTop:20,textTransform:'uppercase'}}>Your account</div>
-    <div className="card-wrap" style={{padding:'14px'}}>
-      <div style={{fontSize:13,color:'#555',marginBottom:12}}>You are the <b>admin</b> of this group. Only you can access this settings page, add/remove captains, and delete players or games.</div>
-      <button className="btn danger full" onClick={()=>sb.auth.signOut()}>Sign out</button>
-    </div>
   </div>;
 }
 
@@ -919,7 +1005,7 @@ function App() {
       <div><h1>⚽ Pickup Soccer</h1><p style={{color:'rgba(255,255,255,0.6)',fontSize:11}}>{groupName}</p></div>
       <span className="admin-badge">ADMIN</span>
     </div>
-    <Settings role={role} onClose={()=>{setShowSettings(false);load();}}/>
+    <Settings role={role} players={players} onClose={()=>{setShowSettings(false);load();}}/>
   </div>;
 
   return <div className="app">
