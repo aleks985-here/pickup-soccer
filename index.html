@@ -626,9 +626,12 @@ function Game({players,onSaveGame,isAdmin,games}) {
         </div>)}
       </div>
     </div>
-    <button className="reshuffle" onClick={reshuffle}>↺ Reshuffle teams</button>
+    <button className="reshuffle" onClick={()=>{reshuffle();setSaved(false);}}>↺ Reshuffle teams</button>
     {saved
-      ?<div className="alert green" style={{marginTop:10,textAlign:'center'}}>Game saved ✓ — teams are now visible to everyone</div>
+      ?<div style={{marginTop:10}}>
+        <div className="alert green" style={{textAlign:'center',marginBottom:8}}>Published ✓ — visible to everyone</div>
+        <button className="btn full" style={{fontSize:13,color:'#2d5509',borderColor:'#a8d87a'}} onClick={()=>setSaved(false)}>Make changes</button>
+      </div>
       :<button className="btn primary full" style={{marginTop:10}} onClick={save} disabled={busy}>{busy?'Saving…':'Save & publish teams'}</button>
     }
     {subModal&&<SubModal player={subModal.player} teamIdx={subModal.teamIdx} teams={teams} bench={bench} onSub={doSub} onClose={()=>setSubModal(null)} isAdmin={isAdmin}/>}
