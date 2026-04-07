@@ -79,15 +79,15 @@ textarea { height: 80px; resize: vertical; }
   </div>
 
   <div id="profile-form" style="display:none">
-    <div class="step-indicator">
+    <div class="step-indicator" id="step-indicator">
       <div class="step done"></div>
       <div class="step active"></div>
       <div class="step"></div>
     </div>
 
     <div class="section">
-      <div class="page-title">Your player profile</div>
-      <div class="page-sub">Fill this out so captains can build fair teams. Your skill rating is set by captains — it won't be shown to you.</div>
+      <div class="page-title" id="page-title">Your player profile</div>
+      <div class="page-sub" id="page-sub">Fill this out so captains can build fair teams. Your skill rating is set by captains — it won't be shown to you.</div>
 
       <div id="alert-area"></div>
 
@@ -250,9 +250,38 @@ async function loadExisting() {
     opt.value = p.id; opt.textContent = p.name; sel.appendChild(opt);
   });
 
+  // First check if already linked to a player (approved)
+  try {
+    const {data: linked} = await sb.from('players').select('*').eq('auth_user_id', user.id).single();
+    if (linked) {
+      // User is fully approved and on roster — show edit mode
+      document.getElementById('page-title').textContent = 'Edit your profile';
+      document.getElementById('page-sub').textContent = 'Your profile is active. Keep your details up to date.';
+      document.getElementById('step-indicator').style.display = 'none';
+      document.getElementById('save-btn').textContent = 'Save changes →';
+      // Pre-fill from players table
+      if (linked.first_name) document.getElementById('first_name').value = linked.first_name;
+      if (linked.last_name) document.getElementById('last_name').value = linked.last_name;
+      if (linked.date_of_birth) { document.getElementById('dob').value = linked.date_of_birth; checkAge(); }
+      if (linked.city) document.getElementById('city').value = linked.city;
+      if (linked.dominant_foot) document.getElementById('dominant_foot').value = linked.dominant_foot;
+      if (linked.years_played) document.getElementById('years_played').value = linked.years_played;
+      if (linked.league_experience) document.getElementById('league_experience').value = linked.league_experience;
+      if (linked.player_notes) document.getElementById('player_notes').value = linked.player_notes;
+      if (linked.positions?.[0]) selectPos(linked.positions[0], 1);
+      if (linked.positions?.[1]) selectPos(linked.positions[1], 2);
+      if (linked.photo_url) document.getElementById('photo-preview').innerHTML = `<img src="${linked.photo_url}" alt="photo"/>`;
+      showAlert('✓ Your profile is approved and you are on the roster.', 'green');
+      return;
+    }
+  } catch(e) { /* not linked yet */ }
+
+  // Check pending profile
   try {
     const {data} = await sb.from('pending_profiles').select('*').eq('auth_user_id', user.id).single();
     if (!data) return;
+
+    // Pre-fill form
     if (data.first_name) document.getElementById('first_name').value = data.first_name;
     if (data.last_name) document.getElementById('last_name').value = data.last_name;
     if (data.date_of_birth) { document.getElementById('dob').value = data.date_of_birth; checkAge(); }
@@ -265,15 +294,16 @@ async function loadExisting() {
     if (data.positions?.[0]) selectPos(data.positions[0], 1);
     if (data.positions?.[1]) selectPos(data.positions[1], 2);
     if (data.photo_url) document.getElementById('photo-preview').innerHTML = `<img src="${data.photo_url}" alt="photo"/>`;
-    if (data.status && data.status !== 'pending') {
-      const msgs = {
-        approved: '✓ Your profile has been approved! You can now RSVP for games.',
-        linked: '✓ Your account is linked to the roster. You\'re all set!',
-        rejected: '⚠ Your profile was not approved. ' + (data.rejection_reason || 'Please contact a captain.')
-      };
-      showAlert(msgs[data.status] || '', data.status === 'rejected' ? 'red' : 'green');
-      document.getElementById('save-btn').textContent = 'Profile submitted ✓';
-      document.getElementById('save-btn').disabled = true;
+
+    if (data.status === 'pending') {
+      document.getElementById('page-title').textContent = 'Profile submitted';
+      document.getElementById('page-sub').textContent = 'Waiting for a captain to approve your request. You can update your details below.';
+      showAlert('⏳ Your profile is under review. A captain will approve it shortly.', 'green');
+      document.getElementById('save-btn').textContent = 'Update profile →';
+    } else if (data.status === 'rejected') {
+      showAlert('⚠ Your profile was not approved. Reason: ' + (data.rejection_reason || 'Contact a captain.'), 'red');
+      document.getElementById('page-sub').textContent = 'Your profile was not approved. You can update and resubmit below.';
+      // Allow resubmission by resetting to pending on save
     }
   } catch(e) { /* no existing record */ }
 }
@@ -356,6 +386,30 @@ async function saveProfile() {
   const positions = pos2 && pos2 !== 'none' ? [pos1, pos2] : [pos1];
   const sugId = document.getElementById('suggested_player_id').value || null;
   const sugName = sugId ? document.querySelector(`#suggested_player_id option[value="${sugId}"]`)?.textContent : null;
+
+  // Check if already linked to a player — save directly to players table
+  const {data: linkedPlayer} = await sb.from('players').select('id').eq('auth_user_id', user.id).maybeSingle();
+  if (linkedPlayer) {
+    const {error} = await sb.from('players').update({
+      first_name: firstName, last_name: lastName,
+      name: `${firstName} ${lastName.charAt(0)}.`,
+      date_of_birth: dob, is_minor: age < 18,
+      city, dominant_foot: foot, positions,
+      years_played: years, league_experience: league,
+      player_notes: v('player_notes') || null,
+      ...(photoUrl ? {photo_url: photoUrl} : {})
+    }).eq('id', linkedPlayer.id);
+    if (error) {
+      showAlert('Error: ' + error.message, 'red');
+      document.getElementById('save-btn').disabled = false;
+      document.getElementById('save-btn').textContent = 'Save changes →';
+    } else {
+      showAlert('✓ Profile updated!', 'green');
+      document.getElementById('save-btn').textContent = 'Saved ✓';
+      setTimeout(() => window.location.href = '/', 1500);
+    }
+    return;
+  }
 
   const payload = {
     auth_user_id: user.id, email: user.email,
