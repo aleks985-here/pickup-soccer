@@ -8,7 +8,7 @@
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: system-ui, -apple-system, sans-serif; background: #f5f5f0; color: #1a1a1a; line-height: 1.6; }
-.wrap { max-width: 560px; margin: 0 auto; padding: 0 0 80px; }
+.wrap { max-width: 560px; margin: 0 auto; padding: 0 0 90px; }
 .header { background: #2d5509; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; }
 .header h1 { font-size: 18px; font-weight: 700; color: #fff; }
 .header a { color: rgba(255,255,255,0.8); font-size: 13px; text-decoration: none; }
@@ -31,23 +31,16 @@ textarea { height: 80px; resize: vertical; }
 .pos-btn.sel-DEF { background: #e8f2fc; border-color: #5a9fd4; color: #1a4f80; }
 .pos-btn.sel-MID { background: #eaf5e0; border-color: #6db33f; color: #2a5c0e; }
 .pos-btn.sel-FWD { background: #fef6e4; border-color: #e8a820; color: #7a4d00; }
-.skill-row { display: flex; align-items: center; gap: 12px; }
-.skill-row input[type=range] { flex: 1; accent-color: #2d5509; }
-.skill-num { font-size: 22px; font-weight: 700; color: #2d5509; min-width: 26px; text-align: center; }
 .photo-area { display: flex; align-items: center; gap: 14px; }
-.photo-preview { width: 72px; height: 72px; border-radius: 50%; object-fit: cover; background: #e0e0e0; display: flex; align-items: center; justify-content: center; font-size: 28px; flex-shrink: 0; overflow: hidden; }
-.photo-preview img { width: 100%; height: 100%; object-fit: cover; }
+.photo-preview { width: 72px; height: 72px; border-radius: 50%; background: #e0e0e0; display: flex; align-items: center; justify-content: center; font-size: 28px; flex-shrink: 0; overflow: hidden; }
+.photo-preview img { width: 72px; height: 72px; object-fit: cover; display: block; border-radius: 50%; }
 .photo-upload { flex: 1; }
 .photo-upload input { display: none; }
 .photo-upload label.upload-btn { display: inline-block; padding: 8px 16px; border: 1px solid #ccc; border-radius: 8px; font-size: 13px; cursor: pointer; background: #fff; color: #555; }
 .photo-upload label.upload-btn:hover { background: #f5f5f5; }
 .age-warning { background: #fff5f5; border: 1px solid #f5c6c6; border-radius: 8px; padding: 12px; margin-top: 8px; font-size: 13px; color: #c0392b; display: none; }
 .age-note { font-size: 12px; color: #888; margin-top: 4px; }
-.score-guide { background: #f8f8f8; border-radius: 8px; padding: 12px; font-size: 12px; color: #666; margin-top: 10px; }
-.score-guide table { width: 100%; border-collapse: collapse; }
-.score-guide td { padding: 3px 6px; }
-.score-guide td:first-child { font-weight: 600; color: #2d5509; width: 50px; }
-.submit-btn { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-top: 1px solid #e0e0e0; padding: 12px 16px; display: flex; gap: 10px; max-width: 560px; margin: 0 auto; z-index: 10; }
+.submit-btn { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 560px; background: #fff; border-top: 1px solid #e0e0e0; padding: 12px 16px; display: flex; gap: 10px; z-index: 100; }
 .submit-btn button { flex: 1; padding: 13px; border-radius: 8px; border: none; font-size: 15px; font-weight: 600; cursor: pointer; }
 .btn-primary { background: #2d5509; color: #fff; }
 .btn-primary:hover { background: #1e3a06; }
@@ -63,6 +56,21 @@ textarea { height: 80px; resize: vertical; }
 .step { flex: 1; height: 4px; border-radius: 2px; background: #e0e0e0; }
 .step.done { background: #2d5509; }
 .step.active { background: #a8d87a; }
+/* Crop modal */
+.crop-modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; z-index: 200; padding: 20px; }
+.crop-modal-bg.open { display: flex; }
+.crop-box { background: #fff; border-radius: 16px; padding: 20px; max-width: 340px; width: 100%; }
+.crop-box h3 { font-size: 16px; font-weight: 700; margin-bottom: 14px; text-align: center; }
+.crop-canvas-wrap { width: 260px; height: 260px; border-radius: 50%; overflow: hidden; margin: 0 auto 14px; border: 3px solid #2d5509; cursor: grab; position: relative; touch-action: none; }
+.crop-canvas-wrap:active { cursor: grabbing; }
+#crop-canvas { display: block; }
+.zoom-row { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+.zoom-row input { flex: 1; accent-color: #2d5509; }
+.zoom-row button { background: #f0f0f0; border: 1px solid #ccc; border-radius: 6px; padding: 4px 10px; font-size: 16px; cursor: pointer; }
+.crop-actions { display: flex; gap: 10px; }
+.crop-actions button { flex: 1; padding: 11px; border-radius: 8px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; }
+.crop-actions .btn-cancel { background: #f0f0f0; color: #444; }
+.crop-actions .btn-confirm { background: #2d5509; color: #fff; }
 </style>
 </head>
 <body>
@@ -214,6 +222,26 @@ textarea { height: 80px; resize: vertical; }
   </div>
 </div>
 
+<!-- Crop modal -->
+<div class="crop-modal-bg" id="crop-modal">
+  <div class="crop-box">
+    <h3>Adjust your photo</h3>
+    <div class="crop-canvas-wrap" id="crop-wrap">
+      <canvas id="crop-canvas" width="260" height="260"></canvas>
+    </div>
+    <div style="font-size:11px;color:#888;text-align:center;margin-bottom:10px">Drag to reposition · Zoom to fit</div>
+    <div class="zoom-row">
+      <button onclick="zoomStep(-0.1)">−</button>
+      <input type="range" id="crop-zoom" min="0.3" max="4" step="0.02" value="1" oninput="applyZoom()">
+      <button onclick="zoomStep(0.1)">+</button>
+    </div>
+    <div class="crop-actions">
+      <button class="btn-cancel" onclick="closeCrop()">Cancel</button>
+      <button class="btn-confirm" onclick="confirmCrop()">Use this photo</button>
+    </div>
+  </div>
+</div>
+
 <div class="submit-btn" id="submit-bar" style="display:none">
   <button class="btn-primary" id="save-btn" onclick="saveProfile()">Save profile →</button>
 </div>
@@ -334,14 +362,125 @@ function checkAge() {
   document.getElementById('save-btn').disabled = isUnder13;
 }
 
-// Photo preview
+// Photo crop state
+const CROP_SIZE = 260;
+let cropImg = null, cropOffX = 0, cropOffY = 0, cropScale = 1;
+let dragStart = null, dragOffStart = null;
+
 document.getElementById('photo-input').addEventListener('change', function() {
-  photoFile = this.files[0];
-  if (!photoFile) return;
-  const reader = new FileReader();
-  reader.onload = e => { document.getElementById('photo-preview').innerHTML = `<img src="${e.target.result}" alt="photo"/>`; };
-  reader.readAsDataURL(photoFile);
+  const file = this.files[0];
+  if (!file) return;
+  // 5MB size limit
+  if (file.size > 5 * 1024 * 1024) {
+    showAlert('Photo is too large. Please choose an image under 5MB.', 'red');
+    this.value = '';
+    return;
+  }
+  const url = URL.createObjectURL(file);
+  cropImg = new Image();
+  cropImg.onload = () => {
+    // Scale to fill the crop circle
+    cropScale = CROP_SIZE / Math.min(cropImg.width, cropImg.height);
+    cropOffX = (CROP_SIZE - cropImg.width * cropScale) / 2;
+    cropOffY = (CROP_SIZE - cropImg.height * cropScale) / 2;
+    document.getElementById('crop-zoom').min = cropScale * 0.5;
+    document.getElementById('crop-zoom').max = cropScale * 5;
+    document.getElementById('crop-zoom').value = cropScale;
+    drawCrop();
+    document.getElementById('crop-modal').classList.add('open');
+  };
+  cropImg.src = url;
+  this.value = '';
 });
+
+function drawCrop() {
+  const canvas = document.getElementById('crop-canvas');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, CROP_SIZE, CROP_SIZE);
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(CROP_SIZE/2, CROP_SIZE/2, CROP_SIZE/2, 0, Math.PI*2);
+  ctx.clip();
+  ctx.drawImage(cropImg, cropOffX, cropOffY, cropImg.width * cropScale, cropImg.height * cropScale);
+  ctx.restore();
+  // Circle border
+  ctx.strokeStyle = '#2d5509';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(CROP_SIZE/2, CROP_SIZE/2, CROP_SIZE/2 - 1, 0, Math.PI*2);
+  ctx.stroke();
+}
+
+function applyZoom() {
+  cropScale = parseFloat(document.getElementById('crop-zoom').value);
+  // Keep image centered after zoom
+  cropOffX = CROP_SIZE/2 - (cropImg.width * cropScale) / 2;
+  cropOffY = CROP_SIZE/2 - (cropImg.height * cropScale) / 2;
+  drawCrop();
+}
+
+function zoomStep(delta) {
+  const z = document.getElementById('crop-zoom');
+  z.value = Math.max(+z.min, Math.min(+z.max, +z.value + delta * cropScale));
+  applyZoom();
+}
+
+// Drag to reposition
+const wrap = document.getElementById('crop-wrap');
+wrap.addEventListener('mousedown', e => { dragStart = {x:e.clientX, y:e.clientY}; dragOffStart = {x:cropOffX, y:cropOffY}; });
+wrap.addEventListener('mousemove', e => {
+  if (!dragStart) return;
+  cropOffX = dragOffStart.x + (e.clientX - dragStart.x);
+  cropOffY = dragOffStart.y + (e.clientY - dragStart.y);
+  drawCrop();
+});
+wrap.addEventListener('mouseup', () => { dragStart = null; });
+wrap.addEventListener('mouseleave', () => { dragStart = null; });
+
+// Touch drag
+wrap.addEventListener('touchstart', e => {
+  const t = e.touches[0];
+  dragStart = {x:t.clientX, y:t.clientY}; dragOffStart = {x:cropOffX, y:cropOffY};
+  e.preventDefault();
+}, {passive:false});
+wrap.addEventListener('touchmove', e => {
+  if (!dragStart) return;
+  const t = e.touches[0];
+  cropOffX = dragOffStart.x + (t.clientX - dragStart.x);
+  cropOffY = dragOffStart.y + (t.clientY - dragStart.y);
+  drawCrop();
+  e.preventDefault();
+}, {passive:false});
+wrap.addEventListener('touchend', () => { dragStart = null; });
+
+// Mouse wheel zoom
+wrap.addEventListener('wheel', e => {
+  e.preventDefault();
+  const z = document.getElementById('crop-zoom');
+  const delta = e.deltaY < 0 ? 0.05 : -0.05;
+  z.value = Math.max(+z.min, Math.min(+z.max, +z.value + delta * cropScale));
+  applyZoom();
+}, {passive:false});
+
+function closeCrop() {
+  document.getElementById('crop-modal').classList.remove('open');
+  cropImg = null;
+}
+
+function confirmCrop() {
+  const canvas = document.getElementById('crop-canvas');
+  canvas.toBlob(blob => {
+    photoFile = new File([blob], 'avatar.jpg', {type:'image/jpeg'});
+    const url = URL.createObjectURL(blob);
+    const prev = document.getElementById('photo-preview');
+    prev.innerHTML = '';
+    const img = document.createElement('img');
+    img.src = url;
+    img.alt = 'photo';
+    prev.appendChild(img);
+    document.getElementById('crop-modal').classList.remove('open');
+  }, 'image/jpeg', 0.88);
+}
 
 // Save — validates all required fields, saves to pending_profiles
 async function saveProfile() {
