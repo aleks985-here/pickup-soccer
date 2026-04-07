@@ -1179,7 +1179,7 @@ function App() {
           👤 <span style={{background:'#fff',color:'#c0392b',borderRadius:10,padding:'1px 6px',fontSize:11,fontWeight:700,marginLeft:2}}>{pendingCount}</span>
         </button>}
         {isAdmin&&<button className="hdr-btn" onClick={()=>setShowSettings(true)}>⚙️</button>}
-        {user&&!isAdmin&&!isCaptain&&<a href="/profile" className="hdr-btn" style={{fontSize:11,textDecoration:'none',padding:'5px 8px'}}>👤 Profile</a>}
+        {user&&<a href="/profile" className="hdr-btn" style={{fontSize:11,textDecoration:'none',padding:'5px 8px'}}>👤 Profile</a>}
         {user
           ?<button className="hdr-btn" onClick={()=>sb.auth.signOut()}>Logout</button>
           :<button className="hdr-btn" onClick={()=>setShowLogin(true)}>Login</button>
