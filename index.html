@@ -1211,7 +1211,6 @@ function App({groupSlug='westwood'}) {
   const [role,setRole]=useState(null);
   const [players,setPlayers]=useState([]);
   const [games,setGames]=useState([]);
-  const [groupName,setGroupName]=useState('Westwood Pickup');
   const [loading,setLoading]=useState(true);
   const [view,setView]=useState('roster');
   const [showLogin,setShowLogin]=useState(false);
@@ -1261,24 +1260,59 @@ function App({groupSlug='westwood'}) {
     setPendingCount(count||0);
   }
 
-  useEffect(()=>{load();},[]);
+  const [groupId,setGroupId]=useState(null);
+
+  useEffect(()=>{load();},[groupSlug]);
 
   async function load() {
-    const [{data:p},{data:g},{data:s}]=await Promise.all([
-      sb.from('players').select('*').order('name'),
-      sb.from('games').select('*').order('created_at',{ascending:false}),
-      sb.from('group_settings').select('*').eq('id',1).single()
-    ]);
-    setPlayers(p||[]);
+    setLoading(true);
+    // Get group record by slug
+    const {data:grp}=await sb.from('groups').select('id,name').eq('slug',groupSlug).single();
+    if(!grp){setLoading(false);return;}
+    setGroupId(grp.id);
+
+    // Load players for this group via player_groups
+    const {data:pgData}=await sb.from('player_groups')
+      .select('skill, players(id,name,positions,photo_url,auth_user_id,donor,profile_complete,date_of_birth,is_minor)')
+      .eq('group_id',grp.id)
+      .eq('active',true);
+    const ps=(pgData||[])
+      .map(pg=>({...pg.players, skill:pg.skill}))
+      .filter(p=>p&&p.id)
+      .sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+    setPlayers(ps);
+
+    // Load games for this group
+    const {data:g}=await sb.from('games').select('*')
+      .eq('group_id',grp.id)
+      .order('created_at',{ascending:false});
     setGames(g||[]);
-    if(s?.group_name)setGroupName(s.group_name);
     setLoading(false);
   }
 
-  const addPlayer=async f=>{await sb.from('players').insert({name:f.name,skill:f.skill,positions:f.positions,games_played:0});await load();};
-  const updatePlayer=async(id,f)=>{await sb.from('players').update({name:f.name,skill:f.skill,positions:f.positions}).eq('id',id);await load();};
-  const deletePlayer=async id=>{await sb.from('players').delete().eq('id',id);await load();};
-  const saveGame=async data=>{await sb.from('games').insert(data);await load();};
+  const addPlayer=async f=>{
+    if(!groupId)return;
+    const {data:newP}=await sb.from('players').insert({name:f.name,positions:f.positions,games_played:0}).select().single();
+    if(newP) await sb.from('player_groups').insert({player_id:newP.id,group_id:groupId,skill:f.skill,added_by:'captain'});
+    await load();
+  };
+  const updatePlayer=async(id,f)=>{
+    if(!groupId)return;
+    await sb.from('players').update({name:f.name,positions:f.positions}).eq('id',id);
+    await sb.from('player_groups').update({skill:f.skill}).eq('player_id',id).eq('group_id',groupId);
+    await load();
+  };
+  const deletePlayer=async id=>{
+    if(!groupId)return;
+    // Soft-delete from group only — player may be in other groups
+    await sb.from('player_groups').update({active:false}).eq('player_id',id).eq('group_id',groupId);
+    await load();
+  };
+  const saveGame=async data=>{
+    if(!groupId)return;
+    await sb.from('games').insert({...data,group_id:groupId});
+    await load();
+  };
   const updateGame=async(id,data)=>{await sb.from('games').update(data).eq('id',id);await load();};
   const deleteGame=async id=>{await sb.from('games').delete().eq('id',id);await load();};
 
