@@ -107,6 +107,19 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const { useState, useEffect, useMemo } = React;
 const POSITIONS = ['GK','DEF','MID','FWD'];
 const LABELS = ['A','B','C','D'];
+const SKILL_LABELS = ['','First timer','Beginner','Learning','Casual','Recreational','Solid','Good','Very good','Competitive','Elite'];
+const SKILL_DESC = ['',
+  'Never played, no positional awareness',
+  'Can kick the ball, very limited control',
+  'Basic ball control, low game awareness',
+  'Gets around the field, loses ball under pressure',
+  'Completes simple passes, rarely scores',
+  'Reliable passes in open play, creates chances',
+  'Consistent under pressure, scores regularly',
+  '80%+ pass accuracy, reads the game, finishes chances',
+  'Dominant in pickup, competitive league standard',
+  'Professional or ex-professional level'
+];
 const COLORS = ['#1565c0','#2e7d32','#b71c1c','#e65100','#6a1b9a','#00695c','#4e342e','#0277bd','#ad1457','#37474f'];
 
 function col(n) { let h=0; for(let c of(n||'X'))h=(h+c.charCodeAt(0))%COLORS.length; return COLORS[h]; }
@@ -219,18 +232,9 @@ function PlayerForm({player,onSave,onCancel,busy}) {
   return <div>
     <div className="field"><label>Name</label><input value={f.name} onChange={e=>set('name',e.target.value)} placeholder="Player name" autoFocus/></div>
     <div className="field">
-      <label>Skill rating — <b>{f.skill}/10</b> · <span style={{color:'#666',fontWeight:400,fontSize:12}}>{['','Beginner','Beginner','Developing','Recreational','Recreational','Solid recreational','Solid recreational','Competitive','Competitive','Elite'][f.skill]}</span></label>
+      <label>Skill rating — <b>{f.skill}/10</b> · <span style={{color:'#2d5509',fontWeight:600,fontSize:13}}>{SKILL_LABELS[f.skill]}</span></label>
       <div className="srow"><input type="range" min="1" max="10" step="1" value={f.skill} onChange={e=>set('skill',+e.target.value)}/><span className="snum">{f.skill}</span></div>
-      <div style={{fontSize:11,color:'#888',marginTop:6,lineHeight:1.6}}>
-        {f.skill<=3&&'Still learning · inconsistent ball control'}
-        {f.skill===4&&'Gets around the field · passes/goals rare'}
-        {f.skill===5&&'Recreational · solid positioning, low conversion'}
-        {f.skill===6&&'Good passes, creates chances, ~50% conversion'}
-        {f.skill===7&&'Reliable passes/shots · reads the game well'}
-        {f.skill===8&&'80%+ pass accuracy · creates and converts chances'}
-        {f.skill===9&&'Near-competitive · dominant in pickup games'}
-        {f.skill===10&&'Elite / professional level'}
-      </div>
+      <div style={{fontSize:12,color:'#777',marginTop:5,fontStyle:'italic'}}>{SKILL_DESC[f.skill]}</div>
     </div>
     <div className="field">
       <label style={{marginBottom:8}}>Preferred positions</label>
@@ -299,8 +303,8 @@ function BulkEdit({players,onUpdate,onClose}) {
             <button className="btn sm" style={{padding:'3px 8px',fontSize:13}} onClick={()=>setSkill(p.id,Math.max(1,e.skill-1))}>−</button>
             <span style={{fontFamily:'monospace',fontSize:16,fontWeight:700,color:'#2d5509',minWidth:18,textAlign:'center'}}>{e.skill}</span>
             <button className="btn sm" style={{padding:'3px 8px',fontSize:13}} onClick={()=>setSkill(p.id,Math.min(10,e.skill+1))}>+</button>
-            <span style={{fontSize:10,color:'#888',maxWidth:70,lineHeight:1.2,textAlign:'left'}}>
-              {e.skill<=3?'Beginner':e.skill<=5?'Recreational':e.skill<=7?'Solid':e.skill<=9?'Competitive':'Elite'}
+            <span style={{fontSize:10,color:'#888',maxWidth:64,lineHeight:1.2,textAlign:'left'}}>
+              {SKILL_LABELS[e.skill]}
             </span>
           </div>
           </div>
@@ -1065,7 +1069,7 @@ function Settings({role,players,onClose}) {
 
 function App() {
   const [user,setUser]=useState(null);
-  const [role,setRole]=useState(null); // 'admin' | 'captain' | null
+  const [role,setRole]=useState(null);
   const [players,setPlayers]=useState([]);
   const [games,setGames]=useState([]);
   const [groupName,setGroupName]=useState('Westwood Pickup');
@@ -1073,6 +1077,8 @@ function App() {
   const [view,setView]=useState('roster');
   const [showLogin,setShowLogin]=useState(false);
   const [showSettings,setShowSettings]=useState(false);
+  const [pendingCount,setPendingCount]=useState(0);
+  const [showApprovals,setShowApprovals]=useState(false);
 
   useEffect(()=>{
     sb.auth.getSession().then(({data})=>{
@@ -1082,7 +1088,7 @@ function App() {
     const {data:{subscription}}=sb.auth.onAuthStateChange((_,session)=>{
       setUser(session?.user??null);
       if(session?.user)fetchRole(session.user.email);
-      else setRole(null);
+      else{setRole(null);setPendingCount(0);}
     });
     return ()=>subscription.unsubscribe();
   },[]);
@@ -1090,7 +1096,14 @@ function App() {
   async function fetchRole(email) {
     const {data,error}=await sb.from('user_roles').select('role').eq('email',email).maybeSingle();
     if(error)console.error('fetchRole error:',error.message);
-    setRole(data?.role||null);
+    const r=data?.role||null;
+    setRole(r);
+    if(r==='admin'||r==='captain') fetchPendingCount();
+  }
+
+  async function fetchPendingCount() {
+    const {count}=await sb.from('pending_profiles').select('*',{count:'exact',head:true}).eq('status','pending');
+    setPendingCount(count||0);
   }
 
   useEffect(()=>{load();},[]);
@@ -1137,6 +1150,9 @@ function App() {
       </div>
       <div style={{display:'flex',alignItems:'center',gap:8}}>
         {roleBadge&&<span className="admin-badge" style={{background:badgeColor}}>{roleBadge}</span>}
+        {isCaptain&&pendingCount>0&&<button className="hdr-btn" style={{position:'relative',background:'#e07b5a',border:'none'}} onClick={()=>setShowApprovals(true)}>
+          👤 <span style={{background:'#fff',color:'#c0392b',borderRadius:10,padding:'1px 6px',fontSize:11,fontWeight:700,marginLeft:2}}>{pendingCount}</span>
+        </button>}
         {isAdmin&&<button className="hdr-btn" onClick={()=>setShowSettings(true)}>⚙️</button>}
         {user
           ?<button className="hdr-btn" onClick={()=>sb.auth.signOut()}>Logout</button>
@@ -1153,10 +1169,106 @@ function App() {
     {view==='game'&&<Game players={players} isAdmin={isCaptain} onSaveGame={saveGame} games={games}/>}
     {view==='history'&&<History games={games} players={players} isAdmin={isCaptain} canDelete={isAdmin} onUpdateGame={updateGame} onDeleteGame={deleteGame}/>}
     {showLogin&&<LoginModal onClose={()=>setShowLogin(false)}/>}
+    {showApprovals&&<ApprovalQueue onClose={()=>{setShowApprovals(false);fetchPendingCount();}} players={players} onApproved={()=>{load();fetchPendingCount();}}/>}
     <div style={{textAlign:'center',padding:'24px 16px 8px',borderTop:'1px solid #e0e0e0',marginTop:8}}>
       <a href="/privacy" target="_blank" style={{fontSize:12,color:'#888',textDecoration:'none',marginRight:16}}>Privacy Policy</a>
       <a href="/deletion" target="_blank" style={{fontSize:12,color:'#888',textDecoration:'none',marginRight:16}}>Data Deletion</a>
       <span style={{fontSize:12,color:'#ccc'}}>soccer.dvornikov.pro</span>
+    </div>
+  </div>;
+}
+
+function ApprovalQueue({onClose,players,onApproved}) {
+  const [pending,setPending]=useState([]);
+  const [busy,setBusy]=useState(null);
+  const [msg,setMsg]=useState('');
+
+  useEffect(()=>{
+    sb.from('pending_profiles').select('*').eq('status','pending').order('created_at').then(({data})=>setPending(data||[]));
+  },[]);
+
+  const approve=async(p,linkToId)=>{
+    setBusy(p.id);setMsg('');
+    if(linkToId){
+      const {error}=await sb.from('players').update({
+        auth_user_id:p.auth_user_id,linked_at:new Date().toISOString(),
+        first_name:p.first_name,last_name:p.last_name,date_of_birth:p.date_of_birth,
+        is_minor:p.is_minor,city:p.city,dominant_foot:p.dominant_foot,
+        positions:p.positions,years_played:p.years_played,league_experience:p.league_experience,
+        player_notes:p.player_notes,profile_complete:true,
+        ...(p.photo_url?{photo_url:p.photo_url}:{})
+      }).eq('id',linkToId);
+      if(!error){
+        await sb.from('pending_profiles').update({status:'linked',reviewed_at:new Date().toISOString()}).eq('id',p.id);
+        setPending(prev=>prev.filter(x=>x.id!==p.id));
+        onApproved();setMsg('Linked to existing player ✓');
+      } else setMsg('Error: '+error.message);
+    } else {
+      const name=`${p.first_name} ${p.last_name.charAt(0)}.`;
+      const {error}=await sb.from('players').insert({
+        name,skill:5,positions:p.positions||['MID'],
+        auth_user_id:p.auth_user_id,linked_at:new Date().toISOString(),
+        first_name:p.first_name,last_name:p.last_name,date_of_birth:p.date_of_birth,
+        is_minor:p.is_minor,city:p.city,dominant_foot:p.dominant_foot,
+        years_played:p.years_played,league_experience:p.league_experience,
+        player_notes:p.player_notes,profile_complete:true,
+        ...(p.photo_url?{photo_url:p.photo_url}:{})
+      });
+      if(!error){
+        await sb.from('pending_profiles').update({status:'approved',reviewed_at:new Date().toISOString()}).eq('id',p.id);
+        setPending(prev=>prev.filter(x=>x.id!==p.id));
+        onApproved();setMsg('Added to roster as new player ✓');
+      } else setMsg('Error: '+error.message);
+    }
+    setBusy(null);
+  };
+
+  const reject=async(p)=>{
+    const reason=prompt('Reason for rejection (optional):');
+    setBusy(p.id);
+    await sb.from('pending_profiles').update({status:'rejected',rejection_reason:reason||'Not approved.',reviewed_at:new Date().toISOString()}).eq('id',p.id);
+    setPending(prev=>prev.filter(x=>x.id!==p.id));
+    setBusy(null);setMsg('Rejected ✓');
+  };
+
+  return <div className="modal-bg" onClick={e=>e.target===e.currentTarget&&onClose()}>
+    <div className="modal" style={{maxWidth:500,maxHeight:'85vh',overflowY:'auto'}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
+        <h2 style={{margin:0}}>New player requests ({pending.length})</h2>
+        <button className="btn sm" onClick={onClose}>✕</button>
+      </div>
+      {msg&&<div className="alert green" style={{marginBottom:12}}>{msg}</div>}
+      {pending.length===0&&<p style={{color:'#888',textAlign:'center',padding:'20px 0'}}>No pending requests</p>}
+      {pending.map(p=>{
+        const sug=p.suggested_player_id?players.find(pl=>pl.id===p.suggested_player_id):null;
+        return <div key={p.id} style={{border:'1px solid #e0e0e0',borderRadius:10,padding:14,marginBottom:12,background:'#fafafa'}}>
+          <div style={{display:'flex',gap:10,marginBottom:8}}>
+            {p.photo_url&&<img src={p.photo_url} style={{width:44,height:44,borderRadius:'50%',objectFit:'cover'}} alt=""/>}
+            <div>
+              <div style={{fontWeight:700,fontSize:15}}>{p.first_name} {p.last_name}</div>
+              <div style={{fontSize:12,color:'#888'}}>{p.email}</div>
+              <div style={{fontSize:12,color:'#666',marginTop:2}}>{p.city} · {p.dominant_foot} foot · {(p.positions||[]).join('/')}</div>
+            </div>
+          </div>
+          <div style={{fontSize:12,color:'#555',marginBottom:8,lineHeight:1.8}}>
+            <span style={{marginRight:12}}>⏱ {p.years_played} yrs</span>
+            <span style={{marginRight:12}}>🏆 {p.league_experience}</span>
+            {p.is_minor&&<span style={{color:'#e07b5a',fontWeight:600}}>⚠ Minor</span>}
+          </div>
+          {p.player_notes&&<div style={{fontSize:12,color:'#666',background:'#f5f5f5',borderRadius:6,padding:'6px 10px',marginBottom:8,fontStyle:'italic'}}>"{p.player_notes}"</div>}
+          {sug&&<div style={{fontSize:12,background:'#eaf5e0',border:'1px solid #a8d87a',borderRadius:6,padding:'6px 10px',marginBottom:8}}>
+            Claims to be: <strong>{sug.name}</strong> in the roster
+          </div>}
+          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+            {sug&&<button className="btn primary" style={{fontSize:12,padding:'6px 12px'}} disabled={busy===p.id}
+              onClick={()=>approve(p,p.suggested_player_id)}>🔗 Link to {sug.name}</button>}
+            <button className="btn" style={{fontSize:12,padding:'6px 12px',background:'#eaf5e0',borderColor:'#a8d87a',color:'#2a5c0e'}} disabled={busy===p.id}
+              onClick={()=>approve(p,null)}>✓ Add as new</button>
+            <button className="btn danger" style={{fontSize:12,padding:'6px 12px'}} disabled={busy===p.id}
+              onClick={()=>reject(p)}>✕ Reject</button>
+          </div>
+        </div>;
+      })}
     </div>
   </div>;
 }
