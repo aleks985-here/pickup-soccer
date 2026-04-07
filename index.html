@@ -1016,44 +1016,34 @@ function History({games,players,isAdmin,canDelete,onUpdateGame,onDeleteGame}) {
   </div>;
 }
 
-function Settings({role,players,onClose}) {
+function Settings({role,players,onClose,groupSlug,groupId}) {
   const [captains,setCaptains]=useState([]);
   const [settings,setSettings]=useState(null);
   const [busy,setBusy]=useState(false);
   const [msg,setMsg]=useState('');
-  const [addingFor,setAddingFor]=useState(null); // player id being promoted
-  const [emailInput,setEmailInput]=useState('');
   const [q,setQ]=useState('');
-  const [tab,setTab]=useState('captains'); // captains | group | support
+  const [tab,setTab]=useState('captains');
 
-  useEffect(()=>{loadSettings();},[]);
+  useEffect(()=>{loadSettings();},[groupId]);
 
   async function loadSettings() {
     const [{data:r},{data:s}]=await Promise.all([
-      sb.from('user_roles').select('*').order('created_at'),
-      sb.from('group_settings').select('*').eq('id',1).single()
+      sb.from('user_roles').select('*').eq('group_id',groupId).order('created_at'),
+      sb.from('groups').select('*').eq('id',groupId).single()
     ]);
     setCaptains((r||[]).filter(r=>r.role==='captain'));
-    setSettings(s||{group_name:'Westwood Pickup',game_time:'10:00',location:'Westwood'});
+    setSettings(s||{name:'',default_day:'',default_time:'',location:'',email_notifications:true});
   }
 
-  const captainEmails=new Set(captains.map(c=>c.player_id));
-  const captainEmailSet=new Set(captains.map(c=>c.email));
-
   const promotePlayer=async(player)=>{
-    if(!emailInput.trim()){setMsg('Enter their email first.');return;}
     setBusy(true);setMsg('');
+    // Email optional — match by player_id at login if no email
+    const email=player.auth_user_id?`linked_${player.id}`:`pending_${player.id}`;
     const {error}=await sb.from('user_roles').insert({
-      email:emailInput.trim().toLowerCase(),
-      role:'captain',
-      player_id:player.id
+      email,role:'captain',player_id:player.id,group_id:groupId
     });
     if(error)setMsg('Error: '+error.message);
-    else{
-      setMsg(`${player.name} added as captain. They sign in with ${emailInput.trim()}.`);
-      setAddingFor(null);setEmailInput('');
-      await loadSettings();
-    }
+    else{setMsg(`${player.name} is now a captain for this group.`);await loadSettings();}
     setBusy(false);
   };
 
@@ -1065,13 +1055,12 @@ function Settings({role,players,onClose}) {
 
   const saveSettings=async()=>{
     setBusy(true);
-    await sb.from('group_settings').update({
-      group_name:settings.group_name,
-      game_time:settings.game_time,
+    await sb.from('groups').update({
+      name:settings.name,
+      default_time:settings.default_time,
       location:settings.location,
-      donations_enabled:settings.donations_enabled||false,
-      kofi_url:settings.kofi_url||''
-    }).eq('id',1);
+      email_notifications:settings.email_notifications!==false
+    }).eq('id',groupId);
     setMsg('Saved.');setBusy(false);setTimeout(()=>setMsg(''),3000);
   };
 
@@ -1117,28 +1106,16 @@ function Settings({role,players,onClose}) {
       <div className="card-wrap">
         {filteredPlayers.map(p=>{
           const isAlready=captains.some(c=>c.player_id===p.id);
-          const isAdding=addingFor===p.id;
-          return <div key={p.id}>
-            <div className="prow">
-              <Av name={p.name} size={32}/>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontWeight:600,fontSize:14}}>{p.name}</div>
-                <div style={{display:'flex',gap:4,marginTop:2}}>{(p.positions||['MID']).map(pos=><span key={pos} className={`ptag ${pos}`}>{pos}</span>)}</div>
-              </div>
-              {isAlready
-                ?<span style={{fontSize:11,fontWeight:700,color:'#1a4f80',background:'#e8f2fc',padding:'3px 8px',borderRadius:8}}>Captain ✓</span>
-                :<button className="btn sm" style={{color:'#1a4f80',borderColor:'#b5d4f4'}} onClick={()=>{setAddingFor(isAdding?null:p.id);setEmailInput('');}}>
-                  {isAdding?'Cancel':'+ Captain'}
-                </button>
-              }
+          return <div key={p.id} className="prow">
+            <Av name={p.name} size={32} photo={p.photo_url}/>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontWeight:600,fontSize:14}}>{p.name}</div>
+              <div style={{display:'flex',gap:4,marginTop:2}}>{(p.positions||['MID']).map(pos=><span key={pos} className={`ptag ${pos}`}>{pos}</span>)}</div>
             </div>
-            {isAdding&&<div style={{padding:'8px 0 12px 42px',borderBottom:'1px solid #f0f0f0'}}>
-              <div style={{fontSize:12,color:'#666',marginBottom:6}}>What email will <b>{p.name}</b> use to sign in?</div>
-              <div style={{display:'flex',gap:8}}>
-                <input type="email" value={emailInput} onChange={e=>setEmailInput(e.target.value)} placeholder="their@email.com" onKeyDown={e=>e.key==='Enter'&&promotePlayer(p)} autoFocus style={{fontSize:13}}/>
-                <button className="btn primary sm" onClick={()=>promotePlayer(p)} disabled={busy||!emailInput.trim()}>Save</button>
-              </div>
-            </div>}
+            {isAlready
+              ?<span style={{fontSize:11,fontWeight:700,color:'#1a4f80',background:'#e8f2fc',padding:'3px 8px',borderRadius:8}}>Captain ✓</span>
+              :<button className="btn sm" style={{color:'#1a4f80',borderColor:'#b5d4f4'}} onClick={()=>promotePlayer(p)} disabled={busy}>+ Captain</button>
+            }
           </div>;
         })}
       </div>
@@ -1146,17 +1123,17 @@ function Settings({role,players,onClose}) {
 
     {tab==='group'&&<>
       <div className="card-wrap" style={{padding:'14px'}}>
-        <div className="field"><label>Group name</label><input value={settings?.group_name||''} onChange={e=>setSettings(s=>({...s,group_name:e.target.value}))}/></div>
-        <div className="field"><label>Default game time</label><input type="time" value={settings?.game_time||'10:00'} onChange={e=>setSettings(s=>({...s,game_time:e.target.value}))}/></div>
+        <div className="field"><label>Group name</label><input value={settings?.name||''} onChange={e=>setSettings(s=>({...s,name:e.target.value}))}/></div>
+        <div className="field"><label>Default game time</label><input type="time" value={settings?.default_time||'08:00'} onChange={e=>setSettings(s=>({...s,default_time:e.target.value}))}/></div>
         <div className="field"><label>Location</label><input value={settings?.location||''} onChange={e=>setSettings(s=>({...s,location:e.target.value}))} placeholder="e.g. Westwood Fields"/></div>
         <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 0',borderTop:'1px solid #f0f0f0',marginTop:4}}>
           <div>
-            <div style={{fontSize:14,fontWeight:500}}>Donation / support feature</div>
-            <div style={{fontSize:12,color:'#888',marginTop:2}}>Show a Support tab and donor icons next to player names</div>
+            <div style={{fontSize:14,fontWeight:500}}>Email notifications</div>
+            <div style={{fontSize:12,color:'#888',marginTop:2}}>Send emails to players when teams are published</div>
           </div>
-          <div onClick={()=>setSettings(s=>({...s,donations_enabled:!s?.donations_enabled}))}
-            style={{width:44,height:24,borderRadius:12,background:settings?.donations_enabled?'#2d5509':'#ccc',cursor:'pointer',position:'relative',flexShrink:0,transition:'background 0.2s'}}>
-            <div style={{width:20,height:20,borderRadius:'50%',background:'#fff',position:'absolute',top:2,left:settings?.donations_enabled?22:2,transition:'left 0.2s'}}/>
+          <div onClick={()=>setSettings(s=>({...s,email_notifications:!s?.email_notifications}))}
+            style={{width:44,height:24,borderRadius:12,background:settings?.email_notifications!==false?'#2d5509':'#ccc',cursor:'pointer',position:'relative',flexShrink:0,transition:'background 0.2s'}}>
+            <div style={{width:20,height:20,borderRadius:'50%',background:'#fff',position:'absolute',top:2,left:settings?.email_notifications!==false?22:2,transition:'left 0.2s'}}/>
           </div>
         </div>
         <button className="btn primary full" style={{marginTop:14}} onClick={saveSettings} disabled={busy}>Save</button>
@@ -1232,12 +1209,31 @@ function App({groupSlug='westwood'}) {
   },[]);
 
   async function fetchRole(email) {
+    // Check by email first
     const {data,error}=await sb.from('user_roles').select('role').eq('email',email).maybeSingle();
     if(error)console.error('fetchRole error:',error.message);
-    const r=data?.role||null;
-    setRole(r);
-    if(r==='admin'||r==='captain') fetchPendingCount();
-    else checkPlayerProfile();
+    if(data?.role){
+      const r=data.role;
+      setRole(r);
+      if(r==='admin'||r==='captain') fetchPendingCount();
+      else checkPlayerProfile();
+      return;
+    }
+    // Fallback: check by player_id (for captains assigned without email)
+    const {data:{user:u}}=await sb.auth.getUser();
+    if(u){
+      const {data:linked}=await sb.from('players').select('id').eq('auth_user_id',u.id).maybeSingle();
+      if(linked){
+        const {data:byPlayer}=await sb.from('user_roles').select('role').eq('player_id',linked.id).maybeSingle();
+        if(byPlayer?.role){
+          setRole(byPlayer.role);
+          fetchPendingCount();
+          return;
+        }
+      }
+    }
+    setRole(null);
+    checkPlayerProfile();
   }
 
   async function checkPlayerProfile() {
@@ -1331,7 +1327,7 @@ function App({groupSlug='westwood'}) {
       </div>
       <span className="admin-badge">ADMIN</span>
     </div>
-    <Settings role={role} players={players} onClose={()=>{setShowSettings(false);load();}}/>
+    <Settings role={role} players={players} groupSlug={groupSlug} groupId={groupId} onClose={()=>{setShowSettings(false);load();}}/>
   </div>;
 
   return <div className="app">
