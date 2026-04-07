@@ -219,8 +219,18 @@ function PlayerForm({player,onSave,onCancel,busy}) {
   return <div>
     <div className="field"><label>Name</label><input value={f.name} onChange={e=>set('name',e.target.value)} placeholder="Player name" autoFocus/></div>
     <div className="field">
-      <label>Skill — <b>{f.skill}/10</b></label>
+      <label>Skill rating — <b>{f.skill}/10</b> · <span style={{color:'#666',fontWeight:400,fontSize:12}}>{['','Beginner','Beginner','Developing','Recreational','Recreational','Solid recreational','Solid recreational','Competitive','Competitive','Elite'][f.skill]}</span></label>
       <div className="srow"><input type="range" min="1" max="10" step="1" value={f.skill} onChange={e=>set('skill',+e.target.value)}/><span className="snum">{f.skill}</span></div>
+      <div style={{fontSize:11,color:'#888',marginTop:6,lineHeight:1.6}}>
+        {f.skill<=3&&'Still learning · inconsistent ball control'}
+        {f.skill===4&&'Gets around the field · passes/goals rare'}
+        {f.skill===5&&'Recreational · solid positioning, low conversion'}
+        {f.skill===6&&'Good passes, creates chances, ~50% conversion'}
+        {f.skill===7&&'Reliable passes/shots · reads the game well'}
+        {f.skill===8&&'80%+ pass accuracy · creates and converts chances'}
+        {f.skill===9&&'Near-competitive · dominant in pickup games'}
+        {f.skill===10&&'Elite / professional level'}
+      </div>
     </div>
     <div className="field">
       <label style={{marginBottom:8}}>Preferred positions</label>
@@ -285,9 +295,14 @@ function BulkEdit({players,onUpdate,onClose}) {
             </div>
           </div>
           <div style={{display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
+          <div style={{display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
             <button className="btn sm" style={{padding:'3px 8px',fontSize:13}} onClick={()=>setSkill(p.id,Math.max(1,e.skill-1))}>−</button>
             <span style={{fontFamily:'monospace',fontSize:16,fontWeight:700,color:'#2d5509',minWidth:18,textAlign:'center'}}>{e.skill}</span>
             <button className="btn sm" style={{padding:'3px 8px',fontSize:13}} onClick={()=>setSkill(p.id,Math.min(10,e.skill+1))}>+</button>
+            <span style={{fontSize:10,color:'#888',maxWidth:70,lineHeight:1.2,textAlign:'left'}}>
+              {e.skill<=3?'Beginner':e.skill<=5?'Recreational':e.skill<=7?'Solid':e.skill<=9?'Competitive':'Elite'}
+            </span>
+          </div>
           </div>
         </div>;
       })}
