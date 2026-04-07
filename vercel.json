@@ -1,6 +1,12 @@
 {
   "rewrites": [
     { "source": "/privacy", "destination": "/privacy.html" },
+    { "source": "/deletion", "destination": "/deletion.html" },
+    { "source": "/profile", "destination": "/profile.html" }
+  ]
+}{
+  "rewrites": [
+    { "source": "/privacy", "destination": "/privacy.html" },
     { "source": "/deletion", "destination": "/deletion.html" }
   ]
 }
