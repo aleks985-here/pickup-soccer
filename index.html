@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Westwood Pickup Soccer</title>
+<title>Pickup Soccer — Fair teams, every game</title>
+<link rel="icon" type="image/png" href="https://raw.githubusercontent.com/aleks985-here/pickup-soccer/main/logo.png">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -12,9 +13,10 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: system-ui, -apple-system, sans-serif; background: #f0f2ee; color: #1a1a1a; }
 .app { max-width: 600px; margin: 0 auto; padding-bottom: 80px; min-height: 100vh; }
-.header { background: #2d5509; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; }
-.header h1 { font-size: 20px; font-weight: 700; color: #fff; }
+.header { background: #2d5509; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; }
+.header h1 { font-size: 18px; font-weight: 700; color: #fff; }
 .header p { font-size: 11px; color: rgba(255,255,255,0.6); margin-top: 1px; }
+.hdr-logo { width: 34px; height: 34px; border-radius: 8px; object-fit: cover; flex-shrink: 0; }
 nav { display: flex; background: #fff; border-bottom: 1px solid #e0e0e0; position: sticky; top: 0; z-index: 10; }
 nav button { flex: 1; padding: 13px 6px; font-size: 12px; font-weight: 600; border: none; background: none; cursor: pointer; color: #888; border-bottom: 2px solid transparent; }
 nav button.active { color: #2d5509; border-bottom-color: #2d5509; }
@@ -93,8 +95,34 @@ label { font-size: 12px; color: #666; display: block; margin-bottom: 4px; }
 .gitem:last-child { border-bottom: none; }
 .loading { display: flex; align-items: center; justify-content: center; height: 100vh; font-size: 18px; color: #2d5509; font-weight: 600; flex-direction: column; gap: 12px; }
 .admin-badge { background: rgba(255,255,255,0.25); color: #fff; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px; letter-spacing: 0.5px; }
-.hdr-btn { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); color: #fff; padding: 5px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; }
+.hdr-btn { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); color: #fff; padding: 5px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; text-decoration: none; }
 .hdr-btn:hover { background: rgba(255,255,255,0.25); }
+/* Landing page */
+.landing { min-height: 100vh; background: #f0f2ee; }
+.landing-header { background: #2d5509; padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; }
+.landing-header-left { display: flex; align-items: center; gap: 10px; }
+.landing-header-left img { width: 36px; height: 36px; border-radius: 8px; }
+.landing-header-left span { font-size: 18px; font-weight: 700; color: #fff; }
+.landing-header-right { display: flex; gap: 8px; }
+.landing-hero { background: #2d5509; padding: 32px 20px 40px; text-align: center; }
+.landing-hero h2 { font-size: 28px; font-weight: 800; color: #fff; margin-bottom: 8px; line-height: 1.2; }
+.landing-hero p { font-size: 15px; color: rgba(255,255,255,0.8); max-width: 380px; margin: 0 auto; line-height: 1.6; }
+.landing-groups { padding: 24px 16px 8px; }
+.landing-groups h3 { font-size: 13px; font-weight: 700; color: #888; letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 14px; }
+.group-card { background: #fff; border: 1px solid #e0e0e0; border-radius: 14px; padding: 18px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: all 0.15s; text-decoration: none; }
+.group-card:hover { border-color: #a8d87a; box-shadow: 0 2px 12px rgba(45,85,9,0.1); transform: translateY(-1px); }
+.group-card-left h4 { font-size: 16px; font-weight: 700; color: #1a1a1a; margin-bottom: 4px; }
+.group-card-left p { font-size: 12px; color: #888; }
+.group-card-right { font-size: 20px; }
+.landing-how { padding: 8px 16px 24px; }
+.landing-how h3 { font-size: 13px; font-weight: 700; color: #888; letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 14px; }
+.how-steps { display: flex; flex-direction: column; gap: 10px; }
+.how-step { display: flex; align-items: flex-start; gap: 12px; background: #fff; border: 1px solid #e0e0e0; border-radius: 10px; padding: 14px; }
+.how-step-num { background: #2d5509; color: #fff; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; }
+.how-step-text strong { display: block; font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+.how-step-text span { font-size: 12px; color: #666; }
+.landing-footer { text-align: center; padding: 16px; border-top: 1px solid #e0e0e0; }
+.landing-footer a { font-size: 12px; color: #888; text-decoration: none; margin: 0 8px; }
 </style>
 </head>
 <body>
@@ -104,10 +132,123 @@ const SUPABASE_URL = 'https://fwjlwgadoixoegysoyrg.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ3amx3Z2Fkb2l4b2VneXNveXJnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0NTkzNjcsImV4cCI6MjA5MDAzNTM2N30.LBi4gbqU0LtW9MK_-0faEBdNmc2F0QQI7rT3nfuC7JA';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+const LOGO_URL = 'https://raw.githubusercontent.com/aleks985-here/pickup-soccer/main/logo.png';
+
+const GROUP_INFO = {
+  'westwood': {name:'Westwood Pickup', schedule:'Sundays 8:00 AM', location:'Westwood, MA', emoji:'🟢'},
+  'sharon':   {name:'Sharon Pickup',   schedule:'Sundays 8:30 AM', location:'Sharon, MA',   emoji:'🔵'},
+  'yentile':  {name:'Yentile Farm',    schedule:'Tuesdays 8:00 PM', location:'Yentile Farm Recreation Facility', emoji:'🟠'},
+};
+
 const { useState, useEffect, useMemo } = React;
 const POSITIONS = ['GK','DEF','MID','FWD'];
 const LABELS = ['A','B','C','D'];
 const SKILL_LABELS = ['','First timer','Beginner','Learning','Casual','Recreational','Solid','Good','Very good','Competitive','Elite'];
+const SKILL_DESC = ['',
+  'Never played, no positional awareness',
+  'Can kick the ball, very limited control',
+  'Basic ball control, low game awareness',
+  'Gets around the field, loses ball under pressure',
+  'Completes simple passes, rarely scores',
+  'Reliable passes in open play, creates chances',
+  'Consistent under pressure, scores regularly',
+  '80%+ pass accuracy, reads the game, finishes chances',
+  'Dominant in pickup, competitive league standard',
+  'Professional or ex-professional level'
+];
+
+// ── ROUTER ───────────────────────────────────────────────────
+function Router() {
+  const [hash, setHash] = useState(window.location.hash);
+  useEffect(()=>{
+    const h = ()=>setHash(window.location.hash);
+    window.addEventListener('hashchange', h);
+    return ()=>window.removeEventListener('hashchange', h);
+  },[]);
+  const slug = hash.replace(/^#\/?/,'').split('/')[0].toLowerCase();
+  if(!slug || !GROUP_INFO[slug]) return <Landing/>;
+  return <App groupSlug={slug}/>;
+}
+
+// ── LANDING PAGE ─────────────────────────────────────────────
+function Landing() {
+  const [user, setUser] = useState(null);
+  const [showLogin, setShowLogin] = useState(false);
+
+  useEffect(()=>{
+    sb.auth.getSession().then(({data})=>setUser(data.session?.user??null));
+    const {data:{subscription}}=sb.auth.onAuthStateChange((_,s)=>setUser(s?.user??null));
+    return ()=>subscription.unsubscribe();
+  },[]);
+
+  return <div className="landing">
+    <div className="landing-header">
+      <div className="landing-header-left">
+        <img src={LOGO_URL} alt="Pickup Soccer logo"/>
+        <span>Pickup Soccer</span>
+      </div>
+      <div className="landing-header-right">
+        {user
+          ?<button className="hdr-btn" onClick={()=>sb.auth.signOut()}>Logout</button>
+          :<button className="hdr-btn" onClick={()=>setShowLogin(true)}>Login</button>
+        }
+      </div>
+    </div>
+
+    <div className="landing-hero">
+      <h2>Fair teams.<br/>Every game.</h2>
+      <p>The app that balances your pickup soccer game by skill and position — automatically.</p>
+    </div>
+
+    <div className="landing-groups">
+      <h3>Choose your group</h3>
+      {Object.entries(GROUP_INFO).map(([slug, g])=>(
+        <a key={slug} className="group-card" href={`#/${slug}`}>
+          <div className="group-card-left">
+            <h4>{g.name}</h4>
+            <p>{g.schedule} · {g.location}</p>
+          </div>
+          <div className="group-card-right">{g.emoji} →</div>
+        </a>
+      ))}
+    </div>
+
+    <div className="landing-how">
+      <h3>How it works</h3>
+      <div className="how-steps">
+        <div className="how-step">
+          <div className="how-step-num">1</div>
+          <div className="how-step-text">
+            <strong>RSVP via WhatsApp or Telegram</strong>
+            <span>Captain shares the link. Players tap "I'm in" from their phone.</span>
+          </div>
+        </div>
+        <div className="how-step">
+          <div className="how-step-num">2</div>
+          <div className="how-step-text">
+            <strong>Teams balanced automatically</strong>
+            <span>App splits players by skill rating and preferred position for even teams.</span>
+          </div>
+        </div>
+        <div className="how-step">
+          <div className="how-step-num">3</div>
+          <div className="how-step-text">
+            <strong>See your team — just show up</strong>
+            <span>Teams are published here. Open the link, find your team, play.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div className="landing-footer">
+      <a href="/privacy">Privacy Policy</a>
+      <a href="/deletion">Data Deletion</a>
+      <a href="/profile">My Profile</a>
+    </div>
+
+    {showLogin&&<LoginModal onClose={()=>setShowLogin(false)}/>}
+  </div>;
+}
 const SKILL_DESC = ['',
   'Never played, no positional awareness',
   'Can kick the ball, very limited control',
@@ -1076,7 +1217,8 @@ function Settings({role,players,onClose}) {
   </div>;
 }
 
-function App() {
+function App({groupSlug='westwood'}) {
+  const groupInfo = GROUP_INFO[groupSlug] || GROUP_INFO['westwood'];
   const [user,setUser]=useState(null);
   const [role,setRole]=useState(null);
   const [players,setPlayers]=useState([]);
@@ -1157,11 +1299,14 @@ function App() {
   const roleBadge=role==='admin'?'ADMIN':role==='captain'?'CAPTAIN':null;
   const badgeColor=role==='admin'?'rgba(255,255,255,0.25)':'rgba(255,220,100,0.35)';
 
-  if(loading) return <div className="loading"><span style={{fontSize:32}}>⚽</span>Loading…</div>;
+  if(loading) return <div className="loading"><img src={LOGO_URL} style={{width:56,height:56,borderRadius:12}} alt="logo"/>Loading…</div>;
 
   if(showSettings&&isAdmin) return <div className="app">
     <div className="header">
-      <div><h1>⚽ Pickup Soccer</h1><p style={{color:'rgba(255,255,255,0.6)',fontSize:11}}>{groupName}</p></div>
+      <div style={{display:'flex',alignItems:'center',gap:9}}>
+        <img src={LOGO_URL} alt="logo" className="hdr-logo"/>
+        <div><h1 style={{fontSize:16}}>{groupInfo.name}</h1></div>
+      </div>
       <span className="admin-badge">ADMIN</span>
     </div>
     <Settings role={role} players={players} onClose={()=>{setShowSettings(false);load();}}/>
@@ -1169,9 +1314,12 @@ function App() {
 
   return <div className="app">
     <div className="header">
-      <div>
-        <h1>⚽ Pickup Soccer</h1>
-        <p style={{color:'rgba(255,255,255,0.6)',fontSize:11}}>{groupName.toUpperCase()}</p>
+      <div style={{display:'flex',alignItems:'center',gap:9}}>
+        <a href="#" style={{lineHeight:0}}><img src={LOGO_URL} alt="logo" className="hdr-logo"/></a>
+        <div>
+          <h1 style={{fontSize:16}}>{groupInfo.name}</h1>
+          <p>{groupInfo.schedule}</p>
+        </div>
       </div>
       <div style={{display:'flex',alignItems:'center',gap:8}}>
         {roleBadge&&<span className="admin-badge" style={{background:badgeColor}}>{roleBadge}</span>}
@@ -1299,7 +1447,7 @@ function ApprovalQueue({onClose,players,onApproved}) {
   </div>;
 }
 
-ReactDOM.render(<App/>, document.getElementById('root'));
+ReactDOM.render(<Router/>, document.getElementById('root'));
 </script>
 </body>
 </html>
