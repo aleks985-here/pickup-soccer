@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Your Profile — Pickup Soccer</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui, -apple-system, sans-serif; background: #f5f5f0; color: #1a1a1a; line-height: 1.6; }
+.wrap { max-width: 560px; margin: 0 auto; padding: 0 0 80px; }
+.header { background: #2d5509; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; }
+.header h1 { font-size: 18px; font-weight: 700; color: #fff; }
+.header a { color: rgba(255,255,255,0.8); font-size: 13px; text-decoration: none; }
+.section { padding: 20px 16px 0; }
+.page-title { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+.page-sub { font-size: 14px; color: #666; margin-bottom: 20px; }
+.card { background: #fff; border: 1px solid #e0e0e0; border-radius: 12px; padding: 18px; margin-bottom: 14px; }
+.card-title { font-size: 12px; font-weight: 700; color: #2d5509; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 14px; }
+.field { margin-bottom: 14px; }
+.field:last-child { margin-bottom: 0; }
+label { font-size: 13px; color: #555; display: block; margin-bottom: 4px; font-weight: 500; }
+.required { color: #c0392b; margin-left: 2px; }
+input, select, textarea { width: 100%; padding: 10px 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 14px; font-family: inherit; color: #1a1a1a; background: #fff; outline: none; }
+input:focus, select:focus, textarea:focus { border-color: #2d5509; box-shadow: 0 0 0 2px rgba(45,85,9,0.1); }
+textarea { height: 80px; resize: vertical; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.pos-grid { display: flex; gap: 8px; flex-wrap: wrap; }
+.pos-btn { padding: 7px 14px; border-radius: 20px; border: 1px solid #ccc; font-size: 13px; font-weight: 600; cursor: pointer; background: #fff; color: #666; transition: all 0.15s; }
+.pos-btn.sel-GK { background: #fff0eb; border-color: #e07b5a; color: #8b3a1e; }
+.pos-btn.sel-DEF { background: #e8f2fc; border-color: #5a9fd4; color: #1a4f80; }
+.pos-btn.sel-MID { background: #eaf5e0; border-color: #6db33f; color: #2a5c0e; }
+.pos-btn.sel-FWD { background: #fef6e4; border-color: #e8a820; color: #7a4d00; }
+.skill-row { display: flex; align-items: center; gap: 12px; }
+.skill-row input[type=range] { flex: 1; accent-color: #2d5509; }
+.skill-num { font-size: 22px; font-weight: 700; color: #2d5509; min-width: 26px; text-align: center; }
+.photo-area { display: flex; align-items: center; gap: 14px; }
+.photo-preview { width: 72px; height: 72px; border-radius: 50%; object-fit: cover; background: #e0e0e0; display: flex; align-items: center; justify-content: center; font-size: 28px; flex-shrink: 0; overflow: hidden; }
+.photo-preview img { width: 100%; height: 100%; object-fit: cover; }
+.photo-upload { flex: 1; }
+.photo-upload input { display: none; }
+.photo-upload label.upload-btn { display: inline-block; padding: 8px 16px; border: 1px solid #ccc; border-radius: 8px; font-size: 13px; cursor: pointer; background: #fff; color: #555; }
+.photo-upload label.upload-btn:hover { background: #f5f5f5; }
+.age-warning { background: #fff5f5; border: 1px solid #f5c6c6; border-radius: 8px; padding: 12px; margin-top: 8px; font-size: 13px; color: #c0392b; display: none; }
+.age-note { font-size: 12px; color: #888; margin-top: 4px; }
+.score-guide { background: #f8f8f8; border-radius: 8px; padding: 12px; font-size: 12px; color: #666; margin-top: 10px; }
+.score-guide table { width: 100%; border-collapse: collapse; }
+.score-guide td { padding: 3px 6px; }
+.score-guide td:first-child { font-weight: 600; color: #2d5509; width: 50px; }
+.submit-btn { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-top: 1px solid #e0e0e0; padding: 12px 16px; display: flex; gap: 10px; max-width: 560px; margin: 0 auto; z-index: 10; }
+.submit-btn button { flex: 1; padding: 13px; border-radius: 8px; border: none; font-size: 15px; font-weight: 600; cursor: pointer; }
+.btn-primary { background: #2d5509; color: #fff; }
+.btn-primary:hover { background: #1e3a06; }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.alert { padding: 12px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 14px; }
+.alert.green { background: #eaf5e0; color: #2a5c0e; border: 1px solid #a8d87a; }
+.alert.red { background: #fff5f5; color: #c0392b; border: 1px solid #f5c6c6; }
+.login-wall { text-align: center; padding: 60px 20px; }
+.login-wall h2 { font-size: 20px; margin-bottom: 10px; }
+.login-wall p { color: #666; margin-bottom: 20px; font-size: 14px; }
+.login-wall a { display: inline-block; background: #2d5509; color: #fff; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; }
+.step-indicator { display: flex; gap: 6px; padding: 12px 16px; }
+.step { flex: 1; height: 4px; border-radius: 2px; background: #e0e0e0; }
+.step.done { background: #2d5509; }
+.step.active { background: #a8d87a; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="header">
+    <h1>⚽ Pickup Soccer</h1>
+    <a href="/">← Back to app</a>
+  </div>
+
+  <div id="login-wall" class="login-wall" style="display:none">
+    <h2>Sign in to set up your profile</h2>
+    <p>Create an account or sign in to save your player profile.</p>
+    <a href="/">Go to app → sign in</a>
+  </div>
+
+  <div id="profile-form" style="display:none">
+    <div class="step-indicator">
+      <div class="step done"></div>
+      <div class="step active"></div>
+      <div class="step"></div>
+    </div>
+
+    <div class="section">
+      <div class="page-title">Your player profile</div>
+      <div class="page-sub">Fill this out so captains can build fair teams. Your skill rating is set by captains — it won't be shown to you.</div>
+
+      <div id="alert-area"></div>
+
+      <!-- PHOTO -->
+      <div class="card">
+        <div class="card-title">Photo</div>
+        <div class="photo-area">
+          <div class="photo-preview" id="photo-preview">👤</div>
+          <div class="photo-upload">
+            <p style="font-size:13px;color:#666;margin-bottom:8px">Optional — helps captains recognize you</p>
+            <label class="upload-btn" for="photo-input">📷 Choose photo</label>
+            <input type="file" id="photo-input" accept="image/*"/>
+          </div>
+        </div>
+      </div>
+
+      <!-- PERSONAL INFO -->
+      <div class="card">
+        <div class="card-title">Personal info</div>
+        <div class="row2">
+          <div class="field">
+            <label>First name <span class="required">*</span></label>
+            <input type="text" id="first_name" placeholder="Alex" autocomplete="given-name"/>
+          </div>
+          <div class="field">
+            <label>Last name <span class="required">*</span></label>
+            <input type="text" id="last_name" placeholder="Smith" autocomplete="family-name"/>
+          </div>
+        </div>
+        <div class="field">
+          <label>Date of birth <span class="required">*</span></label>
+          <input type="date" id="dob" max="" onchange="checkAge()"/>
+          <div class="age-note">Required for age verification. Not shown publicly.</div>
+          <div class="age-warning" id="age-warning">
+            You must be at least 13 years old to create an account. Please ask a parent or guardian to contact us if you need access.
+          </div>
+        </div>
+        <div class="field">
+          <label>City / Town</label>
+          <input type="text" id="city" placeholder="e.g. Westwood, MA" autocomplete="address-level2"/>
+        </div>
+      </div>
+
+      <!-- PLAYING PROFILE -->
+      <div class="card">
+        <div class="card-title">Playing profile</div>
+        <div class="field">
+          <label>Dominant foot <span class="required">*</span></label>
+          <select id="dominant_foot">
+            <option value="">Select…</option>
+            <option value="Right">Right</option>
+            <option value="Left">Left</option>
+            <option value="Both">Both (comfortable either side)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Primary position <span class="required">*</span></label>
+          <div class="pos-grid" id="pos1-grid">
+            <button type="button" class="pos-btn" data-pos="GK" data-grid="1">GK</button>
+            <button type="button" class="pos-btn" data-pos="DEF" data-grid="1">DEF</button>
+            <button type="button" class="pos-btn" data-pos="MID" data-grid="1">MID</button>
+            <button type="button" class="pos-btn" data-pos="FWD" data-grid="1">FWD</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Secondary position</label>
+          <div class="pos-grid" id="pos2-grid">
+            <button type="button" class="pos-btn" data-pos="GK" data-grid="2">GK</button>
+            <button type="button" class="pos-btn" data-pos="DEF" data-grid="2">DEF</button>
+            <button type="button" class="pos-btn" data-pos="MID" data-grid="2">MID</button>
+            <button type="button" class="pos-btn" data-pos="FWD" data-grid="2">FWD</button>
+            <button type="button" class="pos-btn" data-pos="none" data-grid="2" style="color:#aaa">None</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Years playing soccer</label>
+          <select id="years_played">
+            <option value="">Select…</option>
+            <option value="0-1">Less than 1 year</option>
+            <option value="1-3">1 to 3 years</option>
+            <option value="3-5">3 to 5 years</option>
+            <option value="5-10">5 to 10 years</option>
+            <option value="10+">10+ years</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>League experience</label>
+          <select id="league_experience">
+            <option value="">Select…</option>
+            <option value="Never">Never played in a league</option>
+            <option value="Recreational">Recreational / social league</option>
+            <option value="Amateur">Amateur competitive league</option>
+            <option value="Semi-pro">Semi-professional</option>
+            <option value="Pro">Professional</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- NOTES FOR CAPTAIN -->
+      <div class="card">
+        <div class="card-title">Notes for captains</div>
+        <div class="field">
+          <label>Anything captains should know? (optional)</label>
+          <textarea id="player_notes" placeholder="e.g. recovering from knee surgery, prefer not to play GK, have played for Westwood FC for 3 years…"></textarea>
+        </div>
+      </div>
+
+      <p style="font-size:12px;color:#999;padding:0 4px 20px;text-align:center">
+        Your skill rating is set by a captain — it's private and won't be shown to you. <a href="/privacy" style="color:#2d5509">Privacy policy</a>
+      </p>
+    </div>
+  </div>
+</div>
+
+<div class="submit-btn" id="submit-bar" style="display:none">
+  <button class="btn-primary" id="save-btn" onclick="saveProfile()">Save profile →</button>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://fwjlwgadoixoegysoyrg.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ3amx3Z2Fkb2l4b2VneXNveXJnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0NTkzNjcsImV4cCI6MjA5MDAzNTM2N30.LBi4gbqU0LtW9MK_-0faEBdNmc2F0QQI7rT3nfuC7JA';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let user = null;
+let pos1 = null;
+let pos2 = null;
+let photoFile = null;
+let isMinor = false;
+
+// Set max date for DOB (today)
+document.getElementById('dob').max = new Date().toISOString().split('T')[0];
+
+// Check auth
+sb.auth.getSession().then(({data}) => {
+  user = data.session?.user ?? null;
+  if (!user) {
+    document.getElementById('login-wall').style.display = 'block';
+  } else {
+    document.getElementById('profile-form').style.display = 'block';
+    document.getElementById('submit-bar').style.display = 'flex';
+    loadExisting();
+  }
+});
+
+async function loadExisting() {
+  const {data} = await sb.from('players').select('*').eq('auth_user_id', user.id).single();
+  if (!data) return;
+  if (data.first_name) document.getElementById('first_name').value = data.first_name;
+  if (data.last_name) document.getElementById('last_name').value = data.last_name;
+  if (data.date_of_birth) document.getElementById('dob').value = data.date_of_birth;
+  if (data.city) document.getElementById('city').value = data.city;
+  if (data.dominant_foot) document.getElementById('dominant_foot').value = data.dominant_foot;
+  if (data.years_played) document.getElementById('years_played').value = data.years_played;
+  if (data.league_experience) document.getElementById('league_experience').value = data.league_experience;
+  if (data.player_notes) document.getElementById('player_notes').value = data.player_notes;
+  if (data.positions?.[0]) selectPos(data.positions[0], 1);
+  if (data.positions?.[1]) selectPos(data.positions[1], 2);
+  if (data.photo_url) {
+    const prev = document.getElementById('photo-preview');
+    prev.innerHTML = `<img src="${data.photo_url}" alt="photo"/>`;
+  }
+}
+
+// Position selection
+document.querySelectorAll('.pos-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const pos = btn.dataset.pos;
+    const grid = parseInt(btn.dataset.grid);
+    selectPos(pos, grid);
+  });
+});
+
+function selectPos(pos, grid) {
+  if (grid === 1) pos1 = pos === 'none' ? null : pos;
+  else pos2 = pos === 'none' ? null : pos;
+  document.querySelectorAll(`[data-grid="${grid}"]`).forEach(b => {
+    b.className = 'pos-btn';
+    if (b.dataset.pos === pos) b.classList.add(`sel-${pos}`);
+  });
+}
+
+// Age check
+function checkAge() {
+  const dob = document.getElementById('dob').value;
+  if (!dob) return;
+  const today = new Date();
+  const birth = new Date(dob);
+  const age = today.getFullYear() - birth.getFullYear() -
+    (today < new Date(today.getFullYear(), birth.getMonth(), birth.getDate()) ? 1 : 0);
+  isMinor = age < 13;
+  document.getElementById('age-warning').style.display = isMinor ? 'block' : 'none';
+  document.getElementById('save-btn').disabled = isMinor;
+}
+
+// Photo preview
+document.getElementById('photo-input').addEventListener('change', function() {
+  photoFile = this.files[0];
+  if (!photoFile) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('photo-preview').innerHTML = `<img src="${e.target.result}" alt="photo"/>`;
+  };
+  reader.readAsDataURL(photoFile);
+});
+
+async function saveProfile() {
+  const firstName = document.getElementById('first_name').value.trim();
+  const lastName = document.getElementById('last_name').value.trim();
+  const dob = document.getElementById('dob').value;
+
+  if (!firstName || !lastName) { showAlert('Please enter your first and last name.', 'red'); return; }
+  if (!dob) { showAlert('Please enter your date of birth.', 'red'); return; }
+  if (isMinor) { showAlert('You must be at least 13 to register.', 'red'); return; }
+  if (!pos1) { showAlert('Please select your primary position.', 'red'); return; }
+
+  document.getElementById('save-btn').disabled = true;
+  document.getElementById('save-btn').textContent = 'Saving…';
+
+  let photoUrl = null;
+
+  // Upload photo if selected
+  if (photoFile) {
+    const ext = photoFile.name.split('.').pop();
+    const path = `avatars/${user.id}.${ext}`;
+    const {error: uploadErr} = await sb.storage.from('avatars').upload(path, photoFile, {upsert: true});
+    if (!uploadErr) {
+      const {data: urlData} = sb.storage.from('avatars').getPublicUrl(path);
+      photoUrl = urlData.publicUrl;
+    }
+  }
+
+  const positions = pos2 && pos2 !== 'none' ? [pos1, pos2] : [pos1];
+  const today = new Date();
+  const birth = new Date(dob);
+  const age = today.getFullYear() - birth.getFullYear();
+  const isMinorFlag = age < 18;
+
+  const profileData = {
+    first_name: firstName,
+    last_name: lastName,
+    name: `${firstName} ${lastName.charAt(0)}.`,
+    date_of_birth: dob,
+    is_minor: isMinorFlag,
+    city: document.getElementById('city').value.trim() || null,
+    dominant_foot: document.getElementById('dominant_foot').value || 'Right',
+    positions: positions,
+    years_played: document.getElementById('years_played').value || null,
+    league_experience: document.getElementById('league_experience').value || null,
+    player_notes: document.getElementById('player_notes').value.trim() || null,
+    auth_user_id: user.id,
+    linked_at: new Date().toISOString(),
+    profile_complete: true,
+  };
+
+  if (photoUrl) profileData.photo_url = photoUrl;
+
+  // Try update existing, then insert
+  const {data: existing} = await sb.from('players').select('id').eq('auth_user_id', user.id).single();
+  let error;
+  if (existing) {
+    ({error} = await sb.from('players').update(profileData).eq('id', existing.id));
+  } else {
+    ({error} = await sb.from('players').insert({...profileData, skill: 5, games_played: 0}));
+  }
+
+  if (error) {
+    showAlert('Error saving profile: ' + error.message, 'red');
+    document.getElementById('save-btn').disabled = false;
+    document.getElementById('save-btn').textContent = 'Save profile →';
+  } else {
+    showAlert('Profile saved! A captain will review and link you to the roster.', 'green');
+    document.getElementById('save-btn').textContent = 'Saved ✓';
+    setTimeout(() => window.location.href = '/', 2500);
+  }
+}
+
+function showAlert(msg, type) {
+  document.getElementById('alert-area').innerHTML = `<div class="alert ${type}">${msg}</div>`;
+  window.scrollTo(0, 0);
+}
+</script>
+</body>
+</html>
