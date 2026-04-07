@@ -153,17 +153,17 @@ textarea { height: 80px; resize: vertical; }
           </div>
         </div>
         <div class="field">
-          <label>Secondary position</label>
+          <label>Secondary position <span style="color:#888;font-weight:400">(optional)</span></label>
           <div class="pos-grid" id="pos2-grid">
             <button type="button" class="pos-btn" data-pos="GK" data-grid="2">GK</button>
             <button type="button" class="pos-btn" data-pos="DEF" data-grid="2">DEF</button>
             <button type="button" class="pos-btn" data-pos="MID" data-grid="2">MID</button>
             <button type="button" class="pos-btn" data-pos="FWD" data-grid="2">FWD</button>
-            <button type="button" class="pos-btn" data-pos="none" data-grid="2" style="color:#aaa">None</button>
+            <button type="button" class="pos-btn sel-none" data-pos="none" data-grid="2" style="color:#aaa;background:#f9f9f9">None</button>
           </div>
         </div>
         <div class="field">
-          <label>Years playing soccer</label>
+          <label>Years playing soccer <span class="required">*</span></label>
           <select id="years_played">
             <option value="">Select…</option>
             <option value="0-1">Less than 1 year</option>
@@ -174,7 +174,7 @@ textarea { height: 80px; resize: vertical; }
           </select>
         </div>
         <div class="field">
-          <label>League experience</label>
+          <label>League experience <span class="required">*</span></label>
           <select id="league_experience">
             <option value="">Select…</option>
             <option value="Never">Never played in a league</option>
@@ -186,11 +186,23 @@ textarea { height: 80px; resize: vertical; }
         </div>
       </div>
 
+      <!-- ROSTER MATCH -->
+      <div class="card">
+        <div class="card-title">Are you already in the roster?</div>
+        <p style="font-size:13px;color:#666;margin-bottom:12px">If you've played with this group before, select your name from the list. A captain will verify and link your account.</p>
+        <div class="field">
+          <label>Your name in the roster <span style="color:#888;font-weight:400">(optional)</span></label>
+          <select id="suggested_player_id">
+            <option value="">I'm not in the roster yet / not sure</option>
+          </select>
+        </div>
+      </div>
+
       <!-- NOTES FOR CAPTAIN -->
       <div class="card">
-        <div class="card-title">Notes for captains</div>
+        <div class="card-title">Notes for captains <span style="color:#888;font-weight:400;font-size:11px;text-transform:none;letter-spacing:0">(optional)</span></div>
         <div class="field">
-          <label>Anything captains should know? (optional)</label>
+          <label>Anything captains should know?</label>
           <textarea id="player_notes" placeholder="e.g. recovering from knee surgery, prefer not to play GK, have played for Westwood FC for 3 years…"></textarea>
         </div>
       </div>
@@ -206,21 +218,18 @@ textarea { height: 80px; resize: vertical; }
   <button class="btn-primary" id="save-btn" onclick="saveProfile()">Save profile →</button>
 </div>
 
+
 <script>
 const SUPABASE_URL = 'https://fwjlwgadoixoegysoyrg.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ3amx3Z2Fkb2l4b2VneXNveXJnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0NTkzNjcsImV4cCI6MjA5MDAzNTM2N30.LBi4gbqU0LtW9MK_-0faEBdNmc2F0QQI7rT3nfuC7JA';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-let user = null;
-let pos1 = null;
-let pos2 = null;
-let photoFile = null;
-let isMinor = false;
+let user = null, pos1 = null, pos2 = null, photoFile = null, isUnder13 = false;
 
-// Set max date for DOB (today)
+// Set max DOB date to today
 document.getElementById('dob').max = new Date().toISOString().split('T')[0];
 
-// Check auth
+// Auth check
 sb.auth.getSession().then(({data}) => {
   user = data.session?.user ?? null;
   if (!user) {
@@ -232,32 +241,46 @@ sb.auth.getSession().then(({data}) => {
   }
 });
 
+// Load roster dropdown + existing pending profile
 async function loadExisting() {
-  const {data} = await sb.from('players').select('*').eq('auth_user_id', user.id).single();
-  if (!data) return;
-  if (data.first_name) document.getElementById('first_name').value = data.first_name;
-  if (data.last_name) document.getElementById('last_name').value = data.last_name;
-  if (data.date_of_birth) document.getElementById('dob').value = data.date_of_birth;
-  if (data.city) document.getElementById('city').value = data.city;
-  if (data.dominant_foot) document.getElementById('dominant_foot').value = data.dominant_foot;
-  if (data.years_played) document.getElementById('years_played').value = data.years_played;
-  if (data.league_experience) document.getElementById('league_experience').value = data.league_experience;
-  if (data.player_notes) document.getElementById('player_notes').value = data.player_notes;
-  if (data.positions?.[0]) selectPos(data.positions[0], 1);
-  if (data.positions?.[1]) selectPos(data.positions[1], 2);
-  if (data.photo_url) {
-    const prev = document.getElementById('photo-preview');
-    prev.innerHTML = `<img src="${data.photo_url}" alt="photo"/>`;
-  }
+  const {data: roster} = await sb.from('players').select('id, name').order('name');
+  const sel = document.getElementById('suggested_player_id');
+  (roster || []).forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.id; opt.textContent = p.name; sel.appendChild(opt);
+  });
+
+  try {
+    const {data} = await sb.from('pending_profiles').select('*').eq('auth_user_id', user.id).single();
+    if (!data) return;
+    if (data.first_name) document.getElementById('first_name').value = data.first_name;
+    if (data.last_name) document.getElementById('last_name').value = data.last_name;
+    if (data.date_of_birth) { document.getElementById('dob').value = data.date_of_birth; checkAge(); }
+    if (data.city) document.getElementById('city').value = data.city;
+    if (data.dominant_foot) document.getElementById('dominant_foot').value = data.dominant_foot;
+    if (data.years_played) document.getElementById('years_played').value = data.years_played;
+    if (data.league_experience) document.getElementById('league_experience').value = data.league_experience;
+    if (data.player_notes) document.getElementById('player_notes').value = data.player_notes;
+    if (data.suggested_player_id) document.getElementById('suggested_player_id').value = data.suggested_player_id;
+    if (data.positions?.[0]) selectPos(data.positions[0], 1);
+    if (data.positions?.[1]) selectPos(data.positions[1], 2);
+    if (data.photo_url) document.getElementById('photo-preview').innerHTML = `<img src="${data.photo_url}" alt="photo"/>`;
+    if (data.status && data.status !== 'pending') {
+      const msgs = {
+        approved: '✓ Your profile has been approved! You can now RSVP for games.',
+        linked: '✓ Your account is linked to the roster. You\'re all set!',
+        rejected: '⚠ Your profile was not approved. ' + (data.rejection_reason || 'Please contact a captain.')
+      };
+      showAlert(msgs[data.status] || '', data.status === 'rejected' ? 'red' : 'green');
+      document.getElementById('save-btn').textContent = 'Profile submitted ✓';
+      document.getElementById('save-btn').disabled = true;
+    }
+  } catch(e) { /* no existing record */ }
 }
 
-// Position selection
+// Position buttons
 document.querySelectorAll('.pos-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const pos = btn.dataset.pos;
-    const grid = parseInt(btn.dataset.grid);
-    selectPos(pos, grid);
-  });
+  btn.addEventListener('click', () => selectPos(btn.dataset.pos, parseInt(btn.dataset.grid)));
 });
 
 function selectPos(pos, grid) {
@@ -265,21 +288,20 @@ function selectPos(pos, grid) {
   else pos2 = pos === 'none' ? null : pos;
   document.querySelectorAll(`[data-grid="${grid}"]`).forEach(b => {
     b.className = 'pos-btn';
-    if (b.dataset.pos === pos) b.classList.add(`sel-${pos}`);
+    if (b.dataset.pos === pos) b.classList.add('sel-' + pos);
   });
 }
 
-// Age check
+// Age check — block under 13
 function checkAge() {
   const dob = document.getElementById('dob').value;
   if (!dob) return;
-  const today = new Date();
-  const birth = new Date(dob);
+  const today = new Date(), birth = new Date(dob);
   const age = today.getFullYear() - birth.getFullYear() -
     (today < new Date(today.getFullYear(), birth.getMonth(), birth.getDate()) ? 1 : 0);
-  isMinor = age < 13;
-  document.getElementById('age-warning').style.display = isMinor ? 'block' : 'none';
-  document.getElementById('save-btn').disabled = isMinor;
+  isUnder13 = age < 13;
+  document.getElementById('age-warning').style.display = isUnder13 ? 'block' : 'none';
+  document.getElementById('save-btn').disabled = isUnder13;
 }
 
 // Photo preview
@@ -287,80 +309,75 @@ document.getElementById('photo-input').addEventListener('change', function() {
   photoFile = this.files[0];
   if (!photoFile) return;
   const reader = new FileReader();
-  reader.onload = e => {
-    document.getElementById('photo-preview').innerHTML = `<img src="${e.target.result}" alt="photo"/>`;
-  };
+  reader.onload = e => { document.getElementById('photo-preview').innerHTML = `<img src="${e.target.result}" alt="photo"/>`; };
   reader.readAsDataURL(photoFile);
 });
 
+// Save — validates all required fields, saves to pending_profiles
 async function saveProfile() {
-  const firstName = document.getElementById('first_name').value.trim();
-  const lastName = document.getElementById('last_name').value.trim();
-  const dob = document.getElementById('dob').value;
+  const v = id => document.getElementById(id).value.trim();
+  const firstName = v('first_name'), lastName = v('last_name'), dob = v('dob');
+  const city = v('city'), foot = document.getElementById('dominant_foot').value;
+  const years = document.getElementById('years_played').value;
+  const league = document.getElementById('league_experience').value;
 
-  if (!firstName || !lastName) { showAlert('Please enter your first and last name.', 'red'); return; }
-  if (!dob) { showAlert('Please enter your date of birth.', 'red'); return; }
-  if (isMinor) { showAlert('You must be at least 13 to register.', 'red'); return; }
-  if (!pos1) { showAlert('Please select your primary position.', 'red'); return; }
+  const missing = [];
+  if (!firstName) missing.push('First name');
+  if (!lastName) missing.push('Last name');
+  if (!dob) missing.push('Date of birth');
+  if (isUnder13) { showAlert('You must be at least 13 to register.', 'red'); return; }
+  if (!city) missing.push('City / Town');
+  if (!foot) missing.push('Dominant foot');
+  if (!pos1) missing.push('Primary position');
+  if (!years) missing.push('Years playing soccer');
+  if (!league) missing.push('League experience');
+
+  if (missing.length > 0) {
+    showAlert('Please complete all required fields: ' + missing.join(', ') + '.', 'red');
+    return;
+  }
 
   document.getElementById('save-btn').disabled = true;
   document.getElementById('save-btn').textContent = 'Saving…';
 
   let photoUrl = null;
-
-  // Upload photo if selected
   if (photoFile) {
     const ext = photoFile.name.split('.').pop();
-    const path = `avatars/${user.id}.${ext}`;
-    const {error: uploadErr} = await sb.storage.from('avatars').upload(path, photoFile, {upsert: true});
-    if (!uploadErr) {
-      const {data: urlData} = sb.storage.from('avatars').getPublicUrl(path);
+    const {error: upErr} = await sb.storage.from('avatars').upload(`avatars/${user.id}.${ext}`, photoFile, {upsert: true});
+    if (!upErr) {
+      const {data: urlData} = sb.storage.from('avatars').getPublicUrl(`avatars/${user.id}.${ext}`);
       photoUrl = urlData.publicUrl;
     }
   }
 
+  const today = new Date(), birth = new Date(dob);
+  const age = today.getFullYear() - birth.getFullYear() -
+    (today < new Date(today.getFullYear(), birth.getMonth(), birth.getDate()) ? 1 : 0);
   const positions = pos2 && pos2 !== 'none' ? [pos1, pos2] : [pos1];
-  const today = new Date();
-  const birth = new Date(dob);
-  const age = today.getFullYear() - birth.getFullYear();
-  const isMinorFlag = age < 18;
+  const sugId = document.getElementById('suggested_player_id').value || null;
+  const sugName = sugId ? document.querySelector(`#suggested_player_id option[value="${sugId}"]`)?.textContent : null;
 
-  const profileData = {
-    first_name: firstName,
-    last_name: lastName,
-    name: `${firstName} ${lastName.charAt(0)}.`,
-    date_of_birth: dob,
-    is_minor: isMinorFlag,
-    city: document.getElementById('city').value.trim() || null,
-    dominant_foot: document.getElementById('dominant_foot').value || 'Right',
-    positions: positions,
-    years_played: document.getElementById('years_played').value || null,
-    league_experience: document.getElementById('league_experience').value || null,
-    player_notes: document.getElementById('player_notes').value.trim() || null,
-    auth_user_id: user.id,
-    linked_at: new Date().toISOString(),
-    profile_complete: true,
+  const payload = {
+    auth_user_id: user.id, email: user.email,
+    first_name: firstName, last_name: lastName,
+    date_of_birth: dob, is_minor: age < 18,
+    city, dominant_foot: foot, positions,
+    years_played: years, league_experience: league,
+    player_notes: v('player_notes') || null,
+    suggested_player_id: sugId, suggested_player_name: sugName,
+    status: 'pending'
   };
+  if (photoUrl) payload.photo_url = photoUrl;
 
-  if (photoUrl) profileData.photo_url = photoUrl;
-
-  // Try update existing, then insert
-  const {data: existing} = await sb.from('players').select('id').eq('auth_user_id', user.id).single();
-  let error;
-  if (existing) {
-    ({error} = await sb.from('players').update(profileData).eq('id', existing.id));
-  } else {
-    ({error} = await sb.from('players').insert({...profileData, skill: 5, games_played: 0}));
-  }
+  const {error} = await sb.from('pending_profiles').upsert(payload, {onConflict: 'auth_user_id'});
 
   if (error) {
-    showAlert('Error saving profile: ' + error.message, 'red');
+    showAlert('Error: ' + error.message, 'red');
     document.getElementById('save-btn').disabled = false;
     document.getElementById('save-btn').textContent = 'Save profile →';
   } else {
-    showAlert('Profile saved! A captain will review and link you to the roster.', 'green');
-    document.getElementById('save-btn').textContent = 'Saved ✓';
-    setTimeout(() => window.location.href = '/', 2500);
+    showAlert('✓ Profile submitted! A captain will review your request and add you to the roster. Check back here to see your status.', 'green');
+    document.getElementById('save-btn').textContent = 'Submitted ✓';
   }
 }
 
