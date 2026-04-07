@@ -1,16 +1,9 @@
 {
-  "rewrites": [
-    {
-      "source": "/privacy",
-      "destination": "/privacy.html"
-    },
-    {
-      "source": "/deletion",
-      "destination": "/deletion.html"
-    },
-    {
-      "source": "/profile",
-      "destination": "/profile.html"
-    }
+  "version": 2,
+  "routes": [
+    { "src": "/privacy", "dest": "/privacy.html" },
+    { "src": "/deletion", "dest": "/deletion.html" },
+    { "src": "/profile", "dest": "/profile.html" },
+    { "src": "/", "dest": "/index.html" }
   ]
 }
