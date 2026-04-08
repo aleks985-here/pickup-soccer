@@ -282,9 +282,9 @@ function Av({name,size=34,photo}) {
   return <div className="av" style={{width:size,height:size,fontSize:size>28?12:10,background:col(name)+'22',color:col(name)}}>{ini(name)}</div>;
 }
 
-function LoginModal({onClose}) {
-  const [mode,setMode]=useState('choose');
-  const [email,setEmail]=useState('');
+function LoginModal({onClose, initialMode='choose', initialEmail=''}) {
+  const [mode,setMode]=useState(initialMode);
+  const [email,setEmail]=useState(initialEmail);
   const [pw,setPw]=useState('');
   const [pw2,setPw2]=useState('');
   const [err,setErr]=useState('');
@@ -300,7 +300,7 @@ function LoginModal({onClose}) {
   const signIn=async()=>{
     setBusy(true);setErr('');
     const {error}=await sb.auth.signInWithPassword({email,password:pw});
-    if(error)setErr(error.message==='Invalid login credentials'?'Wrong email or password. Try again or create an account.':error.message);
+    if(error)setErr(error.message==='Invalid login credentials'?'Wrong email or password.':error.message);
     else onClose();
     setBusy(false);
   };
@@ -311,13 +311,24 @@ function LoginModal({onClose}) {
     setBusy(true);setErr('');
     const {error}=await sb.auth.signUp({email,password:pw});
     if(error)setErr(error.message);
-    else setMsg('Account created! Check your email to confirm, then sign in.');
+    else setMsg('✓ Account created! Check your email for a confirmation link, then come back and sign in below.');
     setBusy(false);
   };
 
+  const forgotPassword=async()=>{
+    if(!email.trim()){setErr('Enter your email address first.');return;}
+    setBusy(true);setErr('');
+    const {error}=await sb.auth.resetPasswordForEmail(email.trim(),{redirectTo:`${window.location.origin}/reset-password`});
+    if(error)setErr(error.message);
+    else setMsg('✓ Password reset link sent! Check your email.');
+    setBusy(false);
+  };
+
+  const goSignIn=()=>{setMode('signin');setMsg('');setErr('');setPw('');setPw2('');};
+
   return <div className="modal-bg" onClick={e=>e.target===e.currentTarget&&onClose()}>
     <div className="modal">
-      <h2>{mode==='signup'?'Create account':'Sign in'}</h2>
+      <h2 style={{marginBottom:16}}>{mode==='signup'?'Create account':mode==='forgot'?'Reset password':'Sign in'}</h2>
 
       {mode==='choose'&&<>
         <button className="btn full" style={{marginBottom:12,gap:10,justifyContent:'center',padding:'12px',fontSize:14,borderColor:'#dadce0'}} onClick={loginGoogle} disabled={busy}>
@@ -333,21 +344,39 @@ function LoginModal({onClose}) {
         <button className="btn full" style={{padding:'11px',fontSize:14,background:'#f5f5f5',borderColor:'#e0e0e0'}} onClick={()=>setMode('signup')}>Create new account</button>
       </>}
 
-      {(mode==='signin'||mode==='signup')&&<>
-        <div className="field"><label>Email</label><input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="your@email.com" autoFocus/></div>
-        <div className="field"><label>Password</label><input type="password" value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>e.key==='Enter'&&mode==='signin'&&signIn()} placeholder={mode==='signup'?'At least 6 characters':''}/></div>
-        {mode==='signup'&&<div className="field"><label>Confirm password</label><input type="password" value={pw2} onChange={e=>setPw2(e.target.value)} onKeyDown={e=>e.key==='Enter'&&signUp()} placeholder="Repeat password"/></div>}
+      {(mode==='signin'||mode==='signup'||mode==='forgot')&&<>
+        <div className="field"><label>Email</label>
+          <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="your@email.com" autoFocus
+            onKeyDown={e=>e.key==='Enter'&&mode==='signin'&&signIn()}/>
+        </div>
+        {mode!=='forgot'&&<div className="field">
+          <label>Password</label>
+          <input type="password" value={pw} onChange={e=>setPw(e.target.value)}
+            onKeyDown={e=>e.key==='Enter'&&mode==='signin'&&signIn()}
+            placeholder={mode==='signup'?'At least 6 characters':''}/>
+        </div>}
+        {mode==='signup'&&<div className="field">
+          <label>Confirm password</label>
+          <input type="password" value={pw2} onChange={e=>setPw2(e.target.value)}
+            onKeyDown={e=>e.key==='Enter'&&signUp()} placeholder="Repeat password"/>
+        </div>}
         {err&&<div className="alert red">{err}</div>}
-        {msg&&<div className="alert green">{msg}</div>}
+        {msg&&<>
+          <div className="alert green">{msg}</div>
+          {mode==='signup'&&<button className="btn primary full" style={{marginTop:8}} onClick={goSignIn}>Sign in now →</button>}
+        </>}
         {!msg&&<div className="mbtns">
           <button className="btn" onClick={()=>{setMode('choose');setErr('');setPw('');setPw2('');}}>← Back</button>
-          {mode==='signin'
-            ?<button className="btn primary full" onClick={signIn} disabled={busy||!email||!pw}>{busy?'Signing in…':'Sign in'}</button>
-            :<button className="btn primary full" onClick={signUp} disabled={busy||!email||!pw||!pw2}>{busy?'Creating…':'Create account'}</button>
-          }
+          {mode==='signin'&&<button className="btn primary full" onClick={signIn} disabled={busy||!email||!pw}>{busy?'Signing in…':'Sign in'}</button>}
+          {mode==='signup'&&<button className="btn primary full" onClick={signUp} disabled={busy||!email||!pw||!pw2}>{busy?'Creating…':'Create account'}</button>}
+          {mode==='forgot'&&<button className="btn primary full" onClick={forgotPassword} disabled={busy||!email}>{busy?'Sending…':'Send reset link'}</button>}
         </div>}
-        {!msg&&mode==='signin'&&<button style={{width:'100%',marginTop:10,background:'none',border:'none',color:'#888',fontSize:13,cursor:'pointer',padding:'6px'}} onClick={()=>{setMode('signup');setErr('');setPw('');}}>No account yet? Create one →</button>}
-        {!msg&&mode==='signup'&&<button style={{width:'100%',marginTop:10,background:'none',border:'none',color:'#888',fontSize:13,cursor:'pointer',padding:'6px'}} onClick={()=>{setMode('signin');setErr('');setPw('');setPw2('');}}>Already have an account? Sign in →</button>}
+        {!msg&&mode==='signin'&&<>
+          <button style={{width:'100%',marginTop:8,background:'none',border:'none',color:'#888',fontSize:13,cursor:'pointer',padding:'4px'}} onClick={()=>{setMode('signup');setErr('');setPw('');}}>No account yet? Create one →</button>
+          <button style={{width:'100%',marginTop:2,background:'none',border:'none',color:'#aaa',fontSize:12,cursor:'pointer',padding:'4px'}} onClick={()=>{setMode('forgot');setErr('');setPw('');}}>Forgot password?</button>
+        </>}
+        {!msg&&mode==='signup'&&<button style={{width:'100%',marginTop:8,background:'none',border:'none',color:'#888',fontSize:13,cursor:'pointer',padding:'4px'}} onClick={goSignIn}>Already have an account? Sign in →</button>}
+        {!msg&&mode==='forgot'&&<button style={{width:'100%',marginTop:8,background:'none',border:'none',color:'#888',fontSize:13,cursor:'pointer',padding:'4px'}} onClick={goSignIn}>Back to sign in</button>}
       </>}
 
       <button className="btn full" style={{marginTop:12,color:'#aaa',border:'none',fontSize:13}} onClick={onClose}>Cancel</button>
@@ -458,11 +487,17 @@ function BulkEdit({players,onUpdate,onClose}) {
   </div>;
 }
 
-function Roster({players,isAdmin,canDelete,onAdd,onUpdate,onDelete}) {
+function Roster({players,isAdmin,canDelete,onAdd,onUpdate,onDelete,groupSlug}) {
   const [modal,setModal]=useState(null);
   const [bulk,setBulk]=useState(false);
   const [q,setQ]=useState('');
   const [busy,setBusy]=useState(false);
+  const [invitePlayer,setInvitePlayer]=useState(null);
+  const [inviteEmail,setInviteEmail]=useState('');
+  const [inviteLink,setInviteLink]=useState('');
+  const [inviteMsg,setInviteMsg]=useState('');
+  const [inviteBusy,setInviteBusy]=useState(false);
+
   const list=useMemo(()=>players.filter(p=>p.name.toLowerCase().includes(q.toLowerCase())),[players,q]);
   const save=async f=>{
     setBusy(true);
@@ -471,6 +506,20 @@ function Roster({players,isAdmin,canDelete,onAdd,onUpdate,onDelete}) {
     setBusy(false);setModal(null);
   };
   const del=async id=>{if(!window.confirm('Remove this player?'))return;await onDelete(id);};
+
+  const generateInvite=()=>{
+    if(!inviteEmail.trim()){setInviteMsg('Enter an email address.');return;}
+    setInviteBusy(true);setInviteMsg('');
+    const base=window.location.origin+'/profile';
+    const params=new URLSearchParams({
+      invite:inviteEmail.trim().toLowerCase(),
+      player:invitePlayer.id,
+      group:groupSlug||'westwood'
+    });
+    setInviteLink(`${base}?${params.toString()}`);
+    setInviteMsg('Share this link via WhatsApp or Telegram.');
+    setInviteBusy(false);
+  };
 
   if(isAdmin&&bulk) return <BulkEdit players={players} onUpdate={onUpdate} onClose={()=>setBulk(false)}/>;
 
@@ -490,13 +539,17 @@ function Roster({players,isAdmin,canDelete,onAdd,onUpdate,onDelete}) {
         :list.map(p=><div key={p.id} className="prow">
           <Av name={p.name} photo={p.photo_url}/>
           <div style={{flex:1,minWidth:0}}>
-            <div style={{fontWeight:600,fontSize:14}}>{p.name}</div>
+            <div style={{fontWeight:600,fontSize:14,display:'flex',alignItems:'center',gap:5}}>
+              {p.name}
+              {p.auth_user_id&&<span style={{fontSize:9,background:'#eaf5e0',color:'#2d5509',border:'1px solid #a8d87a',borderRadius:6,padding:'1px 5px',fontWeight:700}}>✓ linked</span>}
+            </div>
             <div style={{display:'flex',gap:5,marginTop:3,flexWrap:'wrap',alignItems:'center'}}>
               {isAdmin&&<span className="spill">★ {p.skill}</span>}
               {(p.positions||['MID']).map(pos=><span key={pos} className={`ptag ${pos}`}>{pos}</span>)}
             </div>
           </div>
-          {isAdmin&&<div style={{display:'flex',gap:6,flexShrink:0}}>
+          {isAdmin&&<div style={{display:'flex',gap:5,flexShrink:0}}>
+            {!p.auth_user_id&&<button className="btn sm" style={{color:'#1a4f80',borderColor:'#b5d4f4',fontSize:11}} onClick={()=>{setInvitePlayer(p);setInviteEmail('');setInviteLink('');setInviteMsg('');}}>✉ Invite</button>}
             <button className="btn sm" onClick={()=>setModal(p)}>Edit</button>
             {canDelete&&<button className="btn sm danger" onClick={()=>del(p.id)}>✕</button>}
           </div>}
@@ -507,6 +560,23 @@ function Roster({players,isAdmin,canDelete,onAdd,onUpdate,onDelete}) {
       <div className="modal">
         <h2>{modal==='add'?'Add player':'Edit — '+modal.name}</h2>
         <PlayerForm player={modal!=='add'?modal:null} onSave={save} onCancel={()=>setModal(null)} busy={busy}/>
+      </div>
+    </div>}
+    {invitePlayer&&<div className="modal-bg" onClick={e=>e.target===e.currentTarget&&setInvitePlayer(null)}>
+      <div className="modal">
+        <h2>Invite {invitePlayer.name}</h2>
+        <p style={{fontSize:13,color:'#666',marginBottom:14,lineHeight:1.5}}>Enter their email address to generate a signup link. Share it via WhatsApp or Telegram. When they sign up, they'll be pre-linked to this roster entry.</p>
+        <div className="field">
+          <label>Their email address</label>
+          <input type="email" value={inviteEmail} onChange={e=>setInviteEmail(e.target.value)} placeholder="player@email.com" autoFocus onKeyDown={e=>e.key==='Enter'&&generateInvite()}/>
+        </div>
+        <button className="btn primary full" onClick={generateInvite} disabled={inviteBusy||!inviteEmail.trim()}>Generate invite link</button>
+        {inviteLink&&<>
+          <div style={{fontSize:12,wordBreak:'break-all',background:'#f5f5f5',borderRadius:6,padding:'8px 10px',margin:'10px 0',color:'#555'}}>{inviteLink}</div>
+          <button className="btn full" onClick={()=>{navigator.clipboard.writeText(inviteLink);setInviteMsg('Copied!');}}>📋 Copy link</button>
+        </>}
+        {inviteMsg&&<div className="alert green" style={{marginTop:8}}>{inviteMsg}</div>}
+        <button className="btn full" style={{marginTop:10,color:'#aaa',border:'none',fontSize:13}} onClick={()=>setInvitePlayer(null)}>Close</button>
       </div>
     </div>}
   </div>;
@@ -1125,15 +1195,25 @@ function Settings({role,players,onClose,groupSlug,groupId}) {
     setSettings(s||{name:'',default_day:'',default_time:'',location:'',email_notifications:true});
   }
 
+  const [addingFor,setAddingFor]=useState(null);
+  const [emailInput,setEmailInput]=useState('');
+
   const promotePlayer=async(player)=>{
+    if(!emailInput.trim()){setMsg('Please enter their email address.');return;}
     setBusy(true);setMsg('');
-    // Email optional — match by player_id at login if no email
-    const email=player.auth_user_id?`linked_${player.id}`:`pending_${player.id}`;
+    const email=emailInput.trim().toLowerCase();
+    // Check if already exists
+    const {data:existing}=await sb.from('user_roles').select('id').eq('email',email).maybeSingle();
+    if(existing){setMsg('This email already has a role assigned.');setBusy(false);return;}
     const {error}=await sb.from('user_roles').insert({
       email,role:'captain',player_id:player.id,group_id:groupId
     });
     if(error)setMsg('Error: '+error.message);
-    else{setMsg(`${player.name} is now a captain for this group.`);await loadSettings();}
+    else{
+      setMsg(`${player.name} added as captain. They sign in with ${email}.`);
+      setAddingFor(null);setEmailInput('');
+      await loadSettings();
+    }
     setBusy(false);
   };
 
@@ -1179,12 +1259,10 @@ function Settings({role,players,onClose,groupSlug,groupId}) {
         <div style={{fontSize:11,fontWeight:700,color:'#888',letterSpacing:'0.5px',marginBottom:8,textTransform:'uppercase'}}>Current captains</div>
         <div className="card-wrap" style={{marginBottom:16}}>
           {captainPlayers.map(c=><div key={c.id} className="prow">
-            <div style={{width:34,height:34,borderRadius:'50%',background:'#e8f2fc',color:'#1a4f80',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,fontSize:12,flexShrink:0}}>
-              {c.player?c.player.name.slice(0,2).toUpperCase():'C'}
-            </div>
+            <Av name={c.player?c.player.name:c.email} size={32} photo={c.player?.photo_url}/>
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontWeight:600,fontSize:14}}>{c.player?c.player.name:c.email}</div>
-              <div style={{fontSize:11,color:'#888',marginTop:1}}>{c.email?.startsWith('pending_')?'Pending login link':'via '+c.email}</div>
+              <div style={{fontSize:11,color:'#888',marginTop:1}}>{c.email}</div>
             </div>
             <button className="btn sm danger" onClick={()=>removeCaptain(c.id,c.player?.name||c.email)}>Remove</button>
           </div>)}
@@ -1196,16 +1274,29 @@ function Settings({role,players,onClose,groupSlug,groupId}) {
       <div className="card-wrap">
         {filteredPlayers.map(p=>{
           const isAlready=captains.some(c=>c.player_id===p.id);
-          return <div key={p.id} className="prow">
-            <Av name={p.name} size={32} photo={p.photo_url}/>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{fontWeight:600,fontSize:14}}>{p.name}</div>
-              <div style={{display:'flex',gap:4,marginTop:2}}>{(p.positions||['MID']).map(pos=><span key={pos} className={`ptag ${pos}`}>{pos}</span>)}</div>
+          const isAdding=addingFor===p.id;
+          return <div key={p.id}>
+            <div className="prow">
+              <Av name={p.name} size={32} photo={p.photo_url}/>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontWeight:600,fontSize:14}}>{p.name}</div>
+                <div style={{display:'flex',gap:4,marginTop:2}}>{(p.positions||['MID']).map(pos=><span key={pos} className={`ptag ${pos}`}>{pos}</span>)}</div>
+              </div>
+              {isAlready
+                ?<span style={{fontSize:11,fontWeight:700,color:'#1a4f80',background:'#e8f2fc',padding:'3px 8px',borderRadius:8}}>Captain ✓</span>
+                :<button className="btn sm" style={{color:'#1a4f80',borderColor:'#b5d4f4'}} onClick={()=>{setAddingFor(isAdding?null:p.id);setEmailInput('');}}>
+                  {isAdding?'Cancel':'+ Captain'}
+                </button>
+              }
             </div>
-            {isAlready
-              ?<span style={{fontSize:11,fontWeight:700,color:'#1a4f80',background:'#e8f2fc',padding:'3px 8px',borderRadius:8}}>Captain ✓</span>
-              :<button className="btn sm" style={{color:'#1a4f80',borderColor:'#b5d4f4'}} onClick={()=>promotePlayer(p)} disabled={busy}>+ Captain</button>
-            }
+            {isAdding&&<div style={{padding:'8px 0 12px 42px',borderBottom:'1px solid #f0f0f0'}}>
+              <div style={{fontSize:12,color:'#666',marginBottom:6}}>Email <b>{p.name}</b> uses to sign in:</div>
+              <div style={{display:'flex',gap:8}}>
+                <input type="email" value={emailInput} onChange={e=>setEmailInput(e.target.value)}
+                  placeholder="their@email.com" onKeyDown={e=>e.key==='Enter'&&promotePlayer(p)} autoFocus style={{fontSize:13}}/>
+                <button className="btn primary sm" onClick={()=>promotePlayer(p)} disabled={busy||!emailInput.trim()}>Add</button>
+              </div>
+            </div>}
           </div>;
         })}
       </div>
@@ -1287,6 +1378,7 @@ function App({groupSlug='westwood'}) {
   const [showSettings,setShowSettings]=useState(false);
   const [pendingCount,setPendingCount]=useState(0);
   const [showApprovals,setShowApprovals]=useState(false);
+  const [userDisplayName,setUserDisplayName]=useState('');
 
   useEffect(()=>{
     sb.auth.getSession().then(({data})=>{
@@ -1302,37 +1394,32 @@ function App({groupSlug='westwood'}) {
   },[]);
 
   async function fetchRole(email) {
-    // Check by email first (admins + captains who were added with email)
     const {data,error}=await sb.from('user_roles').select('role,player_id').eq('email',email).maybeSingle();
     if(error)console.error('fetchRole error:',error.message);
     if(data?.role){
       setRole(data.role);
       if(data.role==='admin'||data.role==='captain') fetchPendingCount();
       else checkPlayerProfile();
+      // Load display name from linked player
+      if(data.player_id){
+        const {data:p}=await sb.from('players').select('first_name,last_name,name').eq('id',data.player_id).maybeSingle();
+        if(p) setUserDisplayName(p.first_name?`${p.first_name} ${p.last_name||''}`.trim():p.name||'');
+      }
       return;
     }
-    // Fallback: check by player linked to this auth account
+    // Fallback by player auth link
     const {data:{user:u}}=await sb.auth.getUser();
     if(u){
-      const {data:linked}=await sb.from('players').select('id').eq('auth_user_id',u.id).maybeSingle();
+      const {data:linked}=await sb.from('players').select('id,first_name,last_name,name').eq('auth_user_id',u.id).maybeSingle();
       if(linked){
+        if(linked.first_name) setUserDisplayName(`${linked.first_name} ${linked.last_name||''}`.trim());
+        else setUserDisplayName(linked.name||'');
         const {data:byPlayer}=await sb.from('user_roles').select('role').eq('player_id',linked.id).maybeSingle();
-        if(byPlayer?.role){
-          setRole(byPlayer.role);
-          fetchPendingCount();
-          return;
-        }
-      }
-      // Last fallback: check by pending_ prefixed player_id stored as email
-      const {data:pRows}=await sb.from('user_roles').select('role,player_id').like('email','pending_%');
-      if(pRows?.length){
-        // find if any linked player matches
-        const {data:myPlayers}=await sb.from('players').select('id').eq('auth_user_id',u.id);
-        const myIds=new Set((myPlayers||[]).map(p=>p.id));
-        const match=pRows.find(r=>myIds.has(r.player_id));
-        if(match){setRole(match.role);fetchPendingCount();return;}
+        if(byPlayer?.role){setRole(byPlayer.role);fetchPendingCount();return;}
       }
     }
+    // Use email name as fallback display
+    setUserDisplayName(email.split('@')[0]);
     setRole(null);
     checkPlayerProfile();
   }
@@ -1415,8 +1502,11 @@ function App({groupSlug='westwood'}) {
 
   const isAdmin=role==='admin';
   const isCaptain=role==='admin'||role==='captain';
-  const roleBadge=role==='admin'?'ADMIN':role==='captain'?'CAPTAIN':null;
-  const badgeColor=role==='admin'?'rgba(255,255,255,0.25)':'rgba(255,220,100,0.35)';
+  const roleBadge=role==='admin'?'ADMIN':role==='captain'?'CAPTAIN':role?'PLAYER':null;
+  const badgeColor=role==='admin'?'rgba(255,255,255,0.25)':role==='captain'?'rgba(255,220,100,0.35)':'rgba(255,255,255,0.15)';
+  // Get display name from linked player or email
+  const linkedPlayer=user?players.find(p=>p.auth_user_id===user.id):null;
+  const userDisplayName=linkedPlayer?(linkedPlayer.first_name||linkedPlayer.name):user?.email?.split('@')[0]||'';
 
   if(loading) return <div className="loading"><img src={LOGO_URL} style={{width:56,height:56,borderRadius:12}} alt="logo"/>Loading…</div>;
 
@@ -1440,13 +1530,16 @@ function App({groupSlug='westwood'}) {
           <p>{groupInfo.schedule}</p>
         </div>
       </div>
-      <div style={{display:'flex',alignItems:'center',gap:8}}>
-        {roleBadge&&<span className="admin-badge" style={{background:badgeColor}}>{roleBadge}</span>}
-        {isCaptain&&pendingCount>0&&<button className="hdr-btn" style={{position:'relative',background:'#e07b5a',border:'none'}} onClick={()=>setShowApprovals(true)}>
+      <div style={{display:'flex',alignItems:'center',gap:6}}>
+        {user&&userDisplayName&&<div style={{textAlign:'right',lineHeight:1.2}}>
+          <div style={{color:'#fff',fontSize:12,fontWeight:600,maxWidth:90,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{userDisplayName}</div>
+          {roleBadge&&<div style={{fontSize:10,color:role==='admin'?'#a8d87a':role==='captain'?'#ffd700':'rgba(255,255,255,0.6)',fontWeight:700,letterSpacing:0.4}}>{roleBadge}</div>}
+        </div>}
+        {isCaptain&&pendingCount>0&&<button className="hdr-btn" style={{background:'#e07b5a',border:'none'}} onClick={()=>setShowApprovals(true)}>
           👤 <span style={{background:'#fff',color:'#c0392b',borderRadius:10,padding:'1px 6px',fontSize:11,fontWeight:700,marginLeft:2}}>{pendingCount}</span>
         </button>}
         {isAdmin&&<button className="hdr-btn" onClick={()=>setShowSettings(true)}>⚙️</button>}
-        {user&&<a href="/profile" className="hdr-btn" style={{fontSize:11,textDecoration:'none',padding:'5px 8px'}}>👤 Profile</a>}
+        {user&&<a href="/profile" className="hdr-btn" style={{fontSize:11,textDecoration:'none',padding:'5px 8px'}}>👤</a>}
         {user
           ?<button className="hdr-btn" onClick={()=>sb.auth.signOut()}>Logout</button>
           :<button className="hdr-btn" onClick={()=>setShowLogin(true)}>Login</button>
@@ -1458,7 +1551,7 @@ function App({groupSlug='westwood'}) {
         <button key={v} className={view===v?'active':''} onClick={()=>setView(v)}>{l}</button>
       ))}
     </nav>
-    {view==='roster'&&<Roster players={players} isAdmin={isCaptain} canDelete={isAdmin} onAdd={addPlayer} onUpdate={updatePlayer} onDelete={deletePlayer}/>}
+    {view==='roster'&&<Roster players={players} isAdmin={isCaptain} canDelete={isAdmin} groupSlug={groupSlug} onAdd={addPlayer} onUpdate={updatePlayer} onDelete={deletePlayer}/>}
     {view==='game'&&<Game players={players} isAdmin={isCaptain} onSaveGame={saveGame} games={games}/>}
     {view==='history'&&<History games={games} players={players} isAdmin={isCaptain} canDelete={isAdmin} onUpdateGame={updateGame} onDeleteGame={deleteGame}/>}
     {showLogin&&<LoginModal onClose={()=>setShowLogin(false)}/>}
