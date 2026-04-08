@@ -819,8 +819,21 @@ function AdjustGame({game,players,onSave,onClose}) {
 
   const [teams,setTeams]=useState(()=>(game.teams||[]).map(hydrate));
   const [busy,setBusy]=useState(false);
-  const [dragSrc,setDragSrc]=useState(null); // {player, fromTeam}
-  const [dragOver,setDragOver]=useState(null); // {toTeam, toIdx}
+  const [dragSrc,setDragSrc]=useState(null);
+  const [dragOver,setDragOver]=useState(null);
+  const [showAddPicker,setShowAddPicker]=useState(false);
+  const [addQ,setAddQ]=useState('');
+  const [addToTeam,setAddToTeam]=useState(0);
+
+  const avg=t=>t.length?(t.reduce((s,p)=>s+p.skill,0)/t.length).toFixed(1):'0';
+  const n=teams.length;
+  const allInTeams=new Set(teams.flat().map(p=>p.id));
+  const availablePlayers=players.filter(p=>!allInTeams.has(p.id)&&p.name.toLowerCase().includes(addQ.toLowerCase()));
+
+  const addFromRoster=(player,teamIdx)=>{
+    setTeams(ts=>{const next=ts.map(t=>[...t]);next[teamIdx]=[...next[teamIdx],player];return next;});
+    setShowAddPicker(false);setAddQ('');
+  };
 
   const avg=t=>t.length?(t.reduce((s,p)=>s+p.skill,0)/t.length).toFixed(1):'0';
   const n=teams.length;
@@ -910,6 +923,32 @@ function AdjustGame({game,players,onSave,onClose}) {
 
     <div style={{display:'flex',gap:8,marginBottom:12}}>
       <button className="btn full" style={{background:'#2d5509',color:'#fff',borderColor:'#2d5509',flex:1}} onClick={reshuffle}>↺ Auto-reshuffle</button>
+      <button className="btn" style={{flex:1,color:'#1a4f80',borderColor:'#b5d4f4'}} onClick={()=>setShowAddPicker(v=>!v)}>+ Add player</button>
+    </div>
+
+    {showAddPicker&&<div style={{background:'#f0f8ff',border:'1px solid #b5d4f4',borderRadius:10,padding:12,marginBottom:12}}>
+      <div style={{fontSize:12,fontWeight:700,color:'#1a4f80',marginBottom:8}}>Add player from roster — pick team after selecting</div>
+      <input value={addQ} onChange={e=>setAddQ(e.target.value)} placeholder="🔍 Search roster…" style={{marginBottom:8,fontSize:13}}/>
+      <div style={{display:'flex',gap:6,marginBottom:8}}>
+        {teams.map((_,ti)=><button key={ti} className={`btn sm${addToTeam===ti?' primary':''}`} onClick={()=>setAddToTeam(ti)} style={{flex:1,justifyContent:'center'}}>Team {LABELS[ti]}</button>)}
+      </div>
+      <div style={{maxHeight:180,overflowY:'auto'}}>
+        {availablePlayers.length===0&&<div style={{fontSize:13,color:'#888',textAlign:'center',padding:'10px 0'}}>All roster players already in teams</div>}
+        {availablePlayers.map(p=><div key={p.id} style={{display:'flex',alignItems:'center',gap:8,padding:'6px 0',borderBottom:'1px solid #e8f0fc',cursor:'pointer'}} onClick={()=>addFromRoster(p,addToTeam)}>
+          <Av name={p.name} size={24} photo={p.photo_url}/>
+          <span style={{flex:1,fontSize:13,fontWeight:500}}>{p.name}</span>
+          <span style={{fontSize:11,color:'#888'}}>★{p.skill}</span>
+          {(p.positions||['MID']).map(pos=><span key={pos} className={`ptag ${pos}`}>{pos}</span>)}
+          <span style={{fontSize:11,color:'#1a4f80',fontWeight:600}}>→ {LABELS[addToTeam]}</span>
+        </div>)}
+      </div>
+    </div>}
+
+    <div style={{display:'flex',gap:8,marginBottom:10}}>
+      {teams.map((t,ti)=><div key={ti} style={{flex:1,background:['#ddeeff','#fff3d9','#eaf5e0','#fce8f3'][ti],borderRadius:8,padding:'6px 10px',textAlign:'center',border:`1px solid ${['#7ab8ee','#f0c060','#8fcc5a','#e080b0'][ti]}`}}>
+        <div style={{fontSize:12,fontWeight:700,color:['#1a4f80','#7a4d00','#2a5c0e','#6a1040'][ti]}}>Team {LABELS[ti]}</div>
+        <div style={{fontSize:11,color:'#666'}}>{t.length}P · avg ★{avg(t)}</div>
+      </div>)}
     </div>
 
     <div style={{background:'#f0f8ff',border:'1px solid #b5d4f4',borderRadius:8,padding:'9px 13px',marginBottom:12,fontSize:12,color:'#1a4f80'}}>
@@ -1016,6 +1055,60 @@ function History({games,players,isAdmin,canDelete,onUpdateGame,onDeleteGame}) {
   </div>;
 }
 
+function InviteLink({players}) {
+  const [selectedId,setSelectedId]=useState('');
+  const [email,setEmail]=useState('');
+  const [link,setLink]=useState('');
+  const [busy,setBusy]=useState(false);
+  const [msg,setMsg]=useState('');
+
+  const generate=async()=>{
+    if(!email.trim()){setMsg('Enter an email address.');return;}
+    setBusy(true);setMsg('');setLink('');
+    // Generate a magic link via Supabase (admin only)
+    const {data,error}=await sb.auth.admin?.generateLink?.({
+      type:'magiclink',
+      email:email.trim().toLowerCase()
+    }).catch(()=>({error:{message:'Admin API not available in browser'}}));
+    if(error){
+      // Fallback: create a one-time signup link manually
+      const token=Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2);
+      const inviteUrl=`${window.location.origin}/profile?invite=${encodeURIComponent(email.trim().toLowerCase())}&player=${selectedId}`;
+      setLink(inviteUrl);
+      setMsg('Share this link with the player. They sign up and link to their roster profile.');
+    } else if(data?.properties?.action_link){
+      setLink(data.properties.action_link);
+      setMsg('Magic link generated. Share with the player — expires in 1 hour.');
+    }
+    setBusy(false);
+  };
+
+  const copy=()=>{navigator.clipboard.writeText(link);setMsg('Link copied!');};
+
+  return <div className="card-wrap" style={{padding:14,marginBottom:8}}>
+    <div style={{fontSize:13,color:'#555',marginBottom:10,lineHeight:1.5}}>
+      Select a player from the roster and enter their email to generate a profile setup link. Share via WhatsApp or Telegram.
+    </div>
+    <div className="field">
+      <label>Roster player (optional)</label>
+      <select value={selectedId} onChange={e=>setSelectedId(e.target.value)}>
+        <option value="">New player — not in roster yet</option>
+        {players.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}
+      </select>
+    </div>
+    <div className="field">
+      <label>Their email address *</label>
+      <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="player@email.com"/>
+    </div>
+    <button className="btn primary full" onClick={generate} disabled={busy||!email.trim()}>{busy?'Generating…':'Generate invite link'}</button>
+    {link&&<div style={{marginTop:10}}>
+      <div style={{fontSize:12,wordBreak:'break-all',background:'#f5f5f5',borderRadius:6,padding:'8px 10px',marginBottom:6,color:'#555'}}>{link}</div>
+      <button className="btn full" onClick={copy} style={{fontSize:13}}>📋 Copy link</button>
+    </div>}
+    {msg&&<div className={`alert ${msg.startsWith('Error')||msg.startsWith('Enter')?'red':'green'}`} style={{marginTop:8}}>{msg}</div>}
+  </div>;
+}
+
 function Settings({role,players,onClose,groupSlug,groupId}) {
   const [captains,setCaptains]=useState([]);
   const [settings,setSettings]=useState(null);
@@ -1082,7 +1175,7 @@ function Settings({role,players,onClose,groupSlug,groupId}) {
 
     {tab==='captains'&&<>
       <div style={{fontSize:13,color:'#666',marginBottom:12,lineHeight:1.5}}>
-        Captains can edit player ratings and positions, generate and adjust teams, and record scores. They can't delete players or access settings.
+        Captains can edit player ratings and positions, generate and adjust teams, and record scores.
       </div>
 
       {captainPlayers.length>0&&<>
@@ -1094,7 +1187,7 @@ function Settings({role,players,onClose,groupSlug,groupId}) {
             </div>
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontWeight:600,fontSize:14}}>{c.player?c.player.name:c.email}</div>
-              <div style={{fontSize:11,color:'#888',marginTop:1}}>{c.email}</div>
+              <div style={{fontSize:11,color:'#888',marginTop:1}}>{c.email?.startsWith('pending_')?'Pending login link':'via '+c.email}</div>
             </div>
             <button className="btn sm danger" onClick={()=>removeCaptain(c.id,c.player?.name||c.email)}>Remove</button>
           </div>)}
@@ -1119,6 +1212,9 @@ function Settings({role,players,onClose,groupSlug,groupId}) {
           </div>;
         })}
       </div>
+
+      <div style={{fontSize:11,fontWeight:700,color:'#888',letterSpacing:'0.5px',margin:'20px 0 8px',textTransform:'uppercase'}}>Send invite link to player</div>
+      <InviteLink players={filteredPlayers}/>
     </>}
 
     {tab==='group'&&<>
@@ -1209,17 +1305,16 @@ function App({groupSlug='westwood'}) {
   },[]);
 
   async function fetchRole(email) {
-    // Check by email first
-    const {data,error}=await sb.from('user_roles').select('role').eq('email',email).maybeSingle();
+    // Check by email first (admins + captains who were added with email)
+    const {data,error}=await sb.from('user_roles').select('role,player_id').eq('email',email).maybeSingle();
     if(error)console.error('fetchRole error:',error.message);
     if(data?.role){
-      const r=data.role;
-      setRole(r);
-      if(r==='admin'||r==='captain') fetchPendingCount();
+      setRole(data.role);
+      if(data.role==='admin'||data.role==='captain') fetchPendingCount();
       else checkPlayerProfile();
       return;
     }
-    // Fallback: check by player_id (for captains assigned without email)
+    // Fallback: check by player linked to this auth account
     const {data:{user:u}}=await sb.auth.getUser();
     if(u){
       const {data:linked}=await sb.from('players').select('id').eq('auth_user_id',u.id).maybeSingle();
@@ -1230,6 +1325,15 @@ function App({groupSlug='westwood'}) {
           fetchPendingCount();
           return;
         }
+      }
+      // Last fallback: check by pending_ prefixed player_id stored as email
+      const {data:pRows}=await sb.from('user_roles').select('role,player_id').like('email','pending_%');
+      if(pRows?.length){
+        // find if any linked player matches
+        const {data:myPlayers}=await sb.from('players').select('id').eq('auth_user_id',u.id);
+        const myIds=new Set((myPlayers||[]).map(p=>p.id));
+        const match=pRows.find(r=>myIds.has(r.player_id));
+        if(match){setRole(match.role);fetchPendingCount();return;}
       }
     }
     setRole(null);
