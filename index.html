@@ -1504,9 +1504,6 @@ function App({groupSlug='westwood'}) {
   const isCaptain=role==='admin'||role==='captain';
   const roleBadge=role==='admin'?'ADMIN':role==='captain'?'CAPTAIN':role?'PLAYER':null;
   const badgeColor=role==='admin'?'rgba(255,255,255,0.25)':role==='captain'?'rgba(255,220,100,0.35)':'rgba(255,255,255,0.15)';
-  // Get display name from linked player or email
-  const linkedPlayer=user?players.find(p=>p.auth_user_id===user.id):null;
-  const userDisplayName=linkedPlayer?(linkedPlayer.first_name||linkedPlayer.name):user?.email?.split('@')[0]||'';
 
   if(loading) return <div className="loading"><img src={LOGO_URL} style={{width:56,height:56,borderRadius:12}} alt="logo"/>Loading…</div>;
 
