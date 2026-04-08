@@ -835,9 +835,6 @@ function AdjustGame({game,players,onSave,onClose}) {
     setShowAddPicker(false);setAddQ('');
   };
 
-  const avg=t=>t.length?(t.reduce((s,p)=>s+p.skill,0)/t.length).toFixed(1):'0';
-  const n=teams.length;
-
   // Reshuffle using all currently assigned players
   const reshuffle=()=>{
     const all=teams.flat();
