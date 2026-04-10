@@ -1,10 +1,11 @@
 {
-  "version": 2,
-  "routes": [
-    { "src": "/privacy", "dest": "/privacy.html" },
-    { "src": "/deletion", "dest": "/deletion.html" },
-    { "src": "/profile", "dest": "/profile.html" },
-    { "src": "/reset-password", "dest": "/reset-password.html" },
-    { "src": "/", "dest": "/index.html" }
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "rewrites": [
+    { "source": "/privacy", "destination": "/privacy.html" },
+    { "source": "/deletion", "destination": "/deletion.html" },
+    { "source": "/reset-password", "destination": "/reset-password.html" },
+    { "source": "/profile", "destination": "/profile.html" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
