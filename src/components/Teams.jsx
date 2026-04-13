@@ -96,6 +96,8 @@ export default function Teams({ players, onSaveGame, isAdmin, games, groupId, gr
   const [q, setQ] = useState('')
   const [busy, setBusy] = useState(false)
   const [presentPlayers, setPresentPlayers] = useState([])
+  const [addLateOpen, setAddLateOpen] = useState(false)
+  const [addLateQ, setAddLateQ] = useState('')
 
   // Game date defaults to next Sunday
   const [gameDate, setGameDate] = useState(() => {
@@ -158,6 +160,13 @@ export default function Teams({ players, onSaveGame, isAdmin, games, groupId, gr
     setScores({}); setSaved(false); setSubs([]); setStep('teams')
   }
   const reshuffle = () => { setTeams(genTeams(presentPlayers, n)); setSaved(false); setSubs([]) }
+
+  const addLatePlayer = (p) => {
+    setPresentPlayers(prev => [...prev, p])
+    setAddLateQ('')
+    setAddLateOpen(false)
+    setSaved(false)
+  }
 
   const doSub = (out, fromTi, inp, inTi) => {
     setTeams(ts => {
@@ -404,7 +413,7 @@ export default function Teams({ players, onSaveGame, isAdmin, games, groupId, gr
         <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', marginBottom: 10 }}>
           <input type="checkbox" checked={autoGenerate} onChange={e => setAutoGenerate(e.target.checked)} style={{ width: 16, height: 16, accentColor: '#2d5509' }} />
           <div>
-            <div style={{ fontSize: 14, fontWeight: 600 }}>Auto-generate teams 1.5h before game</div>
+            <div style={{ fontSize: 14, fontWeight: 600 }}>Auto-generate teams 1h before game</div>
             <div style={{ fontSize: 12, color: '#888' }}>Teams are generated automatically from RSVP responses</div>
           </div>
         </label>
@@ -640,6 +649,37 @@ export default function Teams({ players, onSaveGame, isAdmin, games, groupId, gr
         </div>
       ))}
       {bench.length > 0 && <div style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>Bench: {bench.slice(0, 5).map(p => p.name).join(', ')}{bench.length > 5 ? ` +${bench.length - 5} more` : ''}</div>}
+
+      {/* Add late player */}
+      {!addLateOpen
+        ? <button className="btn full" style={{ marginBottom: 10, fontSize: 13 }} onClick={() => setAddLateOpen(true)}>+ Add player who showed up</button>
+        : (() => {
+            const alreadyIn = new Set(presentPlayers.map(p => p.id))
+            const notPresent = players.filter(p => !alreadyIn.has(p.id) && p.name.toLowerCase().includes(addLateQ.toLowerCase()))
+            return (
+              <div className="card-wrap" style={{ padding: '12px 14px', marginBottom: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <span style={{ fontWeight: 600, fontSize: 13, flex: 1 }}>Add late arrival</span>
+                  <button className="btn sm" onClick={() => { setAddLateOpen(false); setAddLateQ('') }}>✕</button>
+                </div>
+                <input value={addLateQ} onChange={e => setAddLateQ(e.target.value)} placeholder="🔍 Search player…" style={{ marginBottom: 8 }} autoFocus />
+                {notPresent.length === 0
+                  ? <div style={{ fontSize: 13, color: '#888', padding: '4px 0' }}>No players found</div>
+                  : notPresent.slice(0, 6).map(p => (
+                    <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid #f0f0f0', cursor: 'pointer' }}
+                      onClick={() => addLatePlayer(p)}>
+                      <Av name={p.name} size={26} />
+                      <span style={{ flex: 1, fontWeight: 500, fontSize: 13 }}>{p.name}</span>
+                      {isAdmin && <span className="spill">★{p.skill}</span>}
+                      <button className="btn sm primary" style={{ padding: '3px 10px', fontSize: 11 }}>Add</button>
+                    </div>
+                  ))
+                }
+              </div>
+            )
+          })()
+      }
+
       <div className="card-wrap" style={{ padding: '12px 14px', marginBottom: 8 }}>
         <div style={{ fontSize: 12, color: '#666', marginBottom: 8, fontWeight: 500 }}>Score after game (optional)</div>
         <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -651,7 +691,7 @@ export default function Teams({ players, onSaveGame, isAdmin, games, groupId, gr
           ))}
         </div>
       </div>
-      <button className="reshuffle" onClick={() => { reshuffle(); setSaved(false) }}>↺ Reshuffle teams</button>
+      <button className="reshuffle" onClick={() => { reshuffle(); setSaved(false) }}>↺ Reshuffle teams ({presentPlayers.length} players)</button>
       {saved
         ? <div style={{ marginTop: 10 }}>
           <div className="alert green" style={{ textAlign: 'center', marginBottom: 8 }}>Published ✓ — visible to everyone</div>
