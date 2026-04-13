@@ -1,0 +1,21 @@
+name: Auto-generate teams
+
+on:
+  schedule:
+    # Run every 15 minutes to catch games starting within the 2h window
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger auto-generate edge function
+        run: |
+          curl -X POST \
+            "${{ secrets.SUPABASE_FUNCTION_URL }}/auto-generate-teams" \
+            -H "x-function-secret: ${{ secrets.FUNCTION_SECRET }}" \
+            -H "Content-Type: application/json" \
+            --fail \
+            --silent \
+            --show-error

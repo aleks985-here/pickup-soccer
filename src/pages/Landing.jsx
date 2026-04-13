@@ -6,12 +6,42 @@ import LoginModal from '../components/LoginModal'
 
 export default function Landing() {
   const [user, setUser] = useState(null)
+  const [userDisplayName, setUserDisplayName] = useState('')
   const [showLogin, setShowLogin] = useState(false)
   const navigate = useNavigate()
 
+  async function fetchUserInfo(authUser) {
+    const { data: p } = await sb.from('players')
+      .select('first_name,last_name,name,primary_group_id')
+      .eq('auth_user_id', authUser.id)
+      .maybeSingle()
+    if (p) {
+      setUserDisplayName(p.first_name ? `${p.first_name} ${p.last_name || ''}`.trim() : p.name || '')
+      return p.primary_group_id
+    }
+    setUserDisplayName(authUser.email?.split('@')[0] || '')
+    return null
+  }
+
   useEffect(() => {
-    sb.auth.getSession().then(({ data }) => setUser(data.session?.user ?? null))
-    const { data: { subscription } } = sb.auth.onAuthStateChange((_, s) => setUser(s?.user ?? null))
+    sb.auth.getSession().then(({ data }) => {
+      const u = data.session?.user ?? null
+      setUser(u)
+      if (u) fetchUserInfo(u)
+    })
+    const { data: { subscription } } = sb.auth.onAuthStateChange(async (event, s) => {
+      const u = s?.user ?? null
+      setUser(u)
+      if (u) {
+        const primaryGroupId = await fetchUserInfo(u)
+        if (event === 'SIGNED_IN' && primaryGroupId) {
+          const { data: grp } = await sb.from('groups').select('slug').eq('id', primaryGroupId).maybeSingle()
+          if (grp?.slug && GROUP_INFO[grp.slug]) { navigate(`/${grp.slug}`); return }
+        }
+      } else {
+        setUserDisplayName('')
+      }
+    })
     return () => subscription.unsubscribe()
   }, [])
 
@@ -23,6 +53,9 @@ export default function Landing() {
           <span>Pickup Soccer</span>
         </div>
         <div className="landing-header-right">
+          {user && userDisplayName && (
+            <span style={{ color: '#fff', fontSize: 13, fontWeight: 600, marginRight: 6 }}>{userDisplayName}</span>
+          )}
           {user
             ? <button className="hdr-btn" onClick={() => sb.auth.signOut()}>Logout</button>
             : <button className="hdr-btn" onClick={() => setShowLogin(true)}>Login</button>

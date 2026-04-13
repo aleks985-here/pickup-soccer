@@ -26,6 +26,7 @@ export default function Group() {
   const [showApprovals, setShowApprovals] = useState(false)
   const [userDisplayName, setUserDisplayName] = useState('')
   const [groupId, setGroupId] = useState(null)
+  const [captainGroupId, setCaptainGroupId] = useState(null)
 
   // Redirect to landing if unknown group
   useEffect(() => {
@@ -46,10 +47,11 @@ export default function Group() {
   }, [])
 
   async function fetchRole(email) {
-    const { data, error } = await sb.from('user_roles').select('role,player_id').eq('email', email).maybeSingle()
+    const { data, error } = await sb.from('user_roles').select('role,player_id,group_id').eq('email', email).maybeSingle()
     if (error) console.error('fetchRole error:', error.message)
     if (data?.role) {
       setRole(data.role)
+      if (data.group_id) setCaptainGroupId(data.group_id)
       if (data.role === 'admin' || data.role === 'captain') fetchPendingCount()
       else checkPlayerProfile()
       if (data.player_id) {
@@ -64,8 +66,13 @@ export default function Group() {
       if (linked) {
         if (linked.first_name) setUserDisplayName(`${linked.first_name} ${linked.last_name || ''}`.trim())
         else setUserDisplayName(linked.name || '')
-        const { data: byPlayer } = await sb.from('user_roles').select('role').eq('player_id', linked.id).maybeSingle()
-        if (byPlayer?.role) { setRole(byPlayer.role); fetchPendingCount(); return }
+        const { data: byPlayer } = await sb.from('user_roles').select('role,group_id').eq('player_id', linked.id).maybeSingle()
+        if (byPlayer?.role) {
+          setRole(byPlayer.role)
+          if (byPlayer.group_id) setCaptainGroupId(byPlayer.group_id)
+          fetchPendingCount()
+          return
+        }
       }
     }
     setUserDisplayName(email.split('@')[0])
@@ -136,8 +143,13 @@ export default function Group() {
   const deleteGame = async id => { await sb.from('games').delete().eq('id', id); await load() }
 
   const isAdmin = role === 'admin'
-  const isCaptain = role === 'admin' || role === 'captain'
+  const isCaptain = role === 'admin' || (role === 'captain' && (!captainGroupId || captainGroupId === groupId))
   const roleBadge = role === 'admin' ? 'ADMIN' : role === 'captain' ? 'CAPTAIN' : role ? 'PLAYER' : null
+
+  async function handleLogout() {
+    await sb.auth.signOut()
+    navigate('/')
+  }
 
   if (!groupInfo) return null
 
@@ -188,7 +200,7 @@ export default function Group() {
           {isAdmin && <button className="hdr-btn" onClick={() => setShowSettings(true)}>⚙️</button>}
           {user && <a href="/profile" className="hdr-btn" style={{ fontSize: 11, textDecoration: 'none', padding: '5px 8px' }}>👤</a>}
           {user
-            ? <button className="hdr-btn" onClick={() => sb.auth.signOut()}>Logout</button>
+            ? <button className="hdr-btn" onClick={handleLogout}>Logout</button>
             : <button className="hdr-btn" onClick={() => setShowLogin(true)}>Login</button>
           }
         </div>
@@ -199,7 +211,7 @@ export default function Group() {
         ))}
       </nav>
       {view === 'roster' && <Roster players={players} isAdmin={isCaptain} canDelete={isAdmin} groupSlug={groupSlug} onAdd={addPlayer} onUpdate={updatePlayer} onDelete={deletePlayer} />}
-      {view === 'game' && <Teams players={players} isAdmin={isCaptain} onSaveGame={saveGame} games={games} />}
+      {view === 'game' && <Teams players={players} isAdmin={isCaptain} onSaveGame={saveGame} games={games} groupId={groupId} groupSlug={groupSlug} />}
       {view === 'history' && <History games={games} players={players} isAdmin={isCaptain} canDelete={isAdmin} onUpdateGame={updateGame} onDeleteGame={deleteGame} />}
       {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
       {showApprovals && <ApprovalQueue onClose={() => { setShowApprovals(false); fetchPendingCount() }} players={players} onApproved={() => { load(); fetchPendingCount() }} />}
