@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import Av from './Av'
 import { LABELS } from '../lib/constants'
 import { genTeams } from '../lib/utils'
-import { sb, sendEmail } from '../lib/supabase'
+import { sb, sendEmail, sendTelegram } from '../lib/supabase'
 
 // ─── Sub modal ────────────────────────────────────────────────────────────────
 function SubModal({ player, teamIdx, teams, bench, onSub, onClose, isAdmin }) {
@@ -189,15 +189,17 @@ export default function Teams({ players, onSaveGame, isAdmin, games, groupId, gr
     })
     setSaved(true); setBusy(false)
 
-    // Send email notifications (edge function fetches recipients by groupId)
+    // Send email + Telegram notifications
     if (groupId) {
-      sendEmail('teams_published', {
+      const payload = {
         gameDate: fmtDate(),
         groupName: groupSlug,
         groupId,
         groupUrl: `${window.location.origin}/${groupSlug}`,
         teams: teamData.map(t => t.map(p => p.name)),
-      })
+      }
+      sendEmail('teams_published', payload)
+      sendTelegram('teams_published', { ...payload, groupSlug })
     }
   }
 
@@ -227,9 +229,10 @@ export default function Teams({ players, onSaveGame, isAdmin, games, groupId, gr
     setRsvpGame(newGame)
     setStep('rsvp-link')
 
+    const link = `${window.location.origin}/${groupSlug}/rsvp/${newGame.id}`
+
     // Send invite emails to all group players
     if (sendInviteEmails) {
-      const link = `${window.location.origin}/${groupSlug}/rsvp/${newGame.id}`
       sendEmail('rsvp_invite', {
         gameDate: gameLabel,
         gameLocation: rsvpLocation || null,
@@ -238,6 +241,16 @@ export default function Teams({ players, onSaveGame, isAdmin, games, groupId, gr
         rsvpUrl: link,
       })
     }
+
+    // Send Telegram message
+    sendTelegram('rsvp_invite', {
+      groupSlug,
+      gameDate: gameLabel,
+      gameLocation: rsvpLocation || null,
+      groupName: groupSlug,
+      rsvpUrl: link,
+      currentCount: 0,
+    })
   }
 
   // ── RSVP: load live data ───────────────────────────────────────────────────

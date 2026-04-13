@@ -5,16 +5,16 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 
 export const sb = createClient(SUPABASE_URL, SUPABASE_KEY)
 
-export async function sendEmail(type, data) {
+async function callEdgeFunction(fnName, body) {
   const { data: { session } } = await sb.auth.getSession()
   const token = session?.access_token
   if (!token) return
-  await fetch(`${SUPABASE_URL}/functions/v1/send-email`, {
+  await fetch(`${SUPABASE_URL}/functions/v1/${fnName}`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-    },
-    body: JSON.stringify({ type, data }),
-  }).catch(err => console.warn('sendEmail failed:', err.message))
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+    body: JSON.stringify(body),
+  }).catch(err => console.warn(`${fnName} failed:`, err.message))
 }
+
+export const sendEmail = (type, data) => callEdgeFunction('send-email', { type, data })
+export const sendTelegram = (type, data) => callEdgeFunction('send-telegram', { type, data })

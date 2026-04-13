@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { sb } from '../lib/supabase'
+import { sb, sendEmail, sendTelegram } from '../lib/supabase'
 
 const CROP_SIZE = 260
 
@@ -289,6 +289,24 @@ export default function Profile() {
     setAlert({ msg: '✓ Profile submitted! A captain will review your request and add you to the roster.', type: 'green' })
     setPendingStatus('pending')
     window.scrollTo(0, 0)
+
+    // Notify captains via email + Telegram (fire & forget)
+    const playerFullName = `${firstName.trim()} ${lastName.trim()}`
+    const selectedGroup = groups.find(g => g.id === primaryGroupId)
+    if (selectedGroup) {
+      const approvalUrl = `${window.location.origin}/${selectedGroup.slug}`
+      sendEmail('new_signup', {
+        playerName: playerFullName,
+        groupId: primaryGroupId,
+        groupName: selectedGroup.name,
+        approvalUrl,
+      })
+      sendTelegram('new_signup', {
+        groupSlug: selectedGroup.slug,
+        playerName: playerFullName,
+        groupName: selectedGroup.name,
+      })
+    }
   }
 
   if (loading) return (
