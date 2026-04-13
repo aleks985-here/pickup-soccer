@@ -206,6 +206,7 @@ export default function Profile() {
   // ---- Save ----
   async function saveProfile() {
     const missing = []
+    if (!photoPreviewUrl) missing.push('Photo')
     if (!firstName.trim()) missing.push('First name')
     if (!lastName.trim()) missing.push('Last name')
     if (!dob) missing.push('Date of birth')
@@ -215,6 +216,7 @@ export default function Profile() {
     if (!pos1) missing.push('Primary position')
     if (!yearsPlayed) missing.push('Years playing soccer')
     if (!league) missing.push('League experience')
+    if (!primaryGroupId) missing.push('Primary playing location')
     if (missing.length > 0) {
       setAlert({ msg: 'Please complete all required fields: ' + missing.join(', '), type: 'red' })
       window.scrollTo(0, 0)
@@ -349,15 +351,15 @@ export default function Profile() {
         )}
 
         {/* PHOTO */}
-        <PCard title="Photo">
+        <PCard title={<>Photo <span style={{ color: '#c0392b', marginLeft: 2 }}>*</span></>}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div style={{ width: 72, height: 72, borderRadius: '50%', background: '#e0e0e0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, flexShrink: 0, overflow: 'hidden' }}>
+            <div style={{ width: 72, height: 72, borderRadius: '50%', background: photoPreviewUrl ? 'transparent' : '#ffeee9', border: photoPreviewUrl ? 'none' : '2px dashed #e07b5a', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, flexShrink: 0, overflow: 'hidden' }}>
               {photoPreviewUrl
                 ? <img src={photoPreviewUrl} alt="photo" style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: '50%', display: 'block' }} />
                 : '👤'}
             </div>
             <div>
-              <p style={{ fontSize: 13, color: '#666', marginBottom: 8, lineHeight: 1.4 }}>Optional — helps captains recognize you</p>
+              <p style={{ fontSize: 13, color: '#666', marginBottom: 8, lineHeight: 1.4 }}>Required — helps captains recognize you on the field</p>
               <label style={{ display: 'inline-block', padding: '8px 16px', border: '1px solid #ccc', borderRadius: 8, fontSize: 13, cursor: 'pointer', background: '#fff', color: '#555' }}>
                 📷 Choose photo
                 <input type="file" accept="image/*" style={{ display: 'none' }} onChange={onPhotoInput} />
@@ -384,7 +386,7 @@ export default function Profile() {
               You must be at least 13 years old to create an account.
             </div>}
           </PField>
-          <PField label="City / Town">
+          <PField label="City / Town" required>
             <PInput value={city} onChange={e => setCity(e.target.value)} placeholder="e.g. Westwood, MA" autoComplete="address-level2" />
           </PField>
         </PCard>
@@ -442,7 +444,7 @@ export default function Profile() {
 
         {/* PRIMARY LOCATION */}
         <PCard title="Primary playing location">
-          <PField label="Where do you usually play?">
+          <PField label="Where do you usually play?" required>
             <PSelect value={primaryGroupId} onChange={e => setPrimaryGroupId(e.target.value)}>
               <option value="">Select a group…</option>
               {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}

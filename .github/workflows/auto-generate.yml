@@ -2,20 +2,33 @@ name: Auto-generate teams
 
 on:
   schedule:
-    # Run every 15 minutes to catch games starting within the 2h window
-    - cron: '*/15 * * * *'
+    # Run every 30 minutes
+    - cron: '*/30 * * * *'
   workflow_dispatch:
 
 jobs:
   trigger:
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - name: Trigger auto-generate edge function
+        env:
+          SUPABASE_FUNCTION_URL: ${{ secrets.SUPABASE_FUNCTION_URL }}
+          FUNCTION_SECRET: ${{ secrets.FUNCTION_SECRET }}
         run: |
-          curl -X POST \
-            "${{ secrets.SUPABASE_FUNCTION_URL }}/auto-generate-teams" \
-            -H "x-function-secret: ${{ secrets.FUNCTION_SECRET }}" \
-            -H "Content-Type: application/json" \
-            --fail \
-            --silent \
-            --show-error
+          if [ -z "$SUPABASE_FUNCTION_URL" ] || [ -z "$FUNCTION_SECRET" ]; then
+            echo "Secrets not configured, skipping"
+            exit 0
+          fi
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            "${SUPABASE_FUNCTION_URL}/auto-generate-teams" \
+            -H "x-function-secret: ${FUNCTION_SECRET}" \
+            -H "Content-Type: application/json")
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | head -n-1)
+          echo "Status: $HTTP_CODE"
+          echo "Response: $BODY"
+          if [ "$HTTP_CODE" -ge 400 ]; then
+            echo "Request failed with status $HTTP_CODE"
+            exit 1
+          fi
