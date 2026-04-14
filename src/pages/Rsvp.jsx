@@ -73,7 +73,7 @@ export default function Rsvp() {
   }, [game])
 
   async function fetchUserRole(u) {
-    const { data: p } = await sb.from('players').select('id,name,first_name,last_name').eq('auth_user_id', u.id).maybeSingle()
+    const { data: p } = await sb.from('players').select('id,name,first_name,last_name,photo_url,profile_complete').eq('auth_user_id', u.id).maybeSingle()
     if (p) setMyPlayer(p)
 
     // Check role
@@ -403,6 +403,21 @@ export default function Rsvp() {
                 Complete your profile →
               </button>
             </div>
+          ) : user && myPlayer && !myPlayer.profile_complete ? (
+            <div>
+              <div style={{ background: '#fff5e0', border: '1px solid #f0c060', borderRadius: 8, padding: '12px 14px', marginBottom: 12 }}>
+                <div style={{ fontWeight: 700, fontSize: 14, color: '#7a4d00', marginBottom: 4 }}>⚠ Profile incomplete</div>
+                <p style={{ fontSize: 13, color: '#7a4d00', margin: 0, lineHeight: 1.5 }}>
+                  Hi {myPlayer.first_name || myPlayer.name}! Please finish setting up your profile so the captain can build balanced teams.
+                </p>
+              </div>
+              <button onClick={() => {
+                localStorage.setItem('rsvp_redirect', window.location.pathname)
+                window.location.href = '/profile'
+              }} style={{ width: '100%', background: '#c07a00', color: '#fff', border: 'none', borderRadius: 8, padding: '12px', fontSize: 15, fontWeight: 600, cursor: 'pointer', marginBottom: 8 }}>
+                Complete profile to RSVP →
+              </button>
+            </div>
           ) : (
             <div>
               {done && myStatus && (
@@ -441,13 +456,14 @@ export default function Rsvp() {
         </div>
 
         {/* RSVP list */}
-        <div style={{ background: '#fff', borderRadius: 12, padding: '16px 18px', border: '1px solid #e0e0e0' }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: '#2d5509', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 12 }}>
-            Who's playing ({totalIn})
+        <div style={{ background: '#fff', borderRadius: 12, padding: '16px 18px', border: '1px solid #e0e0e0', marginBottom: 12 }}>
+          {/* In list */}
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#2d5509', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 }}>
+            ✓ Coming ({totalIn})
           </div>
           {inList.length === 0
-            ? <p style={{ fontSize: 14, color: '#888', margin: 0 }}>Nobody has RSVP'd yet. Be the first!</p>
-            : <div style={{ marginBottom: outList.length > 0 ? 14 : 0 }}>
+            ? <p style={{ fontSize: 13, color: '#aaa', margin: '0 0 16px' }}>Nobody has RSVPd yet.</p>
+            : <div style={{ marginBottom: 16 }}>
                 {inList.map((r, i) => (
                   <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', borderBottom: i < inList.length - 1 ? '1px solid #f5f5f5' : 'none' }}>
                     <Av name={playerName(r)} size={28} photo={r.players?.photo_url} />
@@ -466,21 +482,27 @@ export default function Rsvp() {
                 ))}
               </div>
           }
-          {outList.length > 0 && (
-            <>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8, marginTop: 4 }}>Can't make it ({outList.length})</div>
-              {outList.map(r => (
-                <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '5px 0', opacity: 0.6 }}>
-                  <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#f5f5f5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: '#999', flexShrink: 0 }}>✗</div>
+
+          {/* Out list — always visible */}
+          <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 12 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#c0392b', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
+              ✗ Can't make it ({outList.length})
+            </div>
+            {outList.length === 0
+              ? <p style={{ fontSize: 13, color: '#aaa', margin: 0 }}>No declines yet.</p>
+              : outList.map((r, i) => (
+                <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '5px 0', borderBottom: i < outList.length - 1 ? '1px solid #f5f5f5' : 'none' }}>
+                  <Av name={playerName(r)} size={28} photo={r.players?.photo_url} />
                   <span style={{ flex: 1, fontSize: 13, color: '#888' }}>{playerName(r)}</span>
+                  {r.auth_user_id === user?.id && <span style={{ fontSize: 10, background: '#fff5f5', color: '#c0392b', border: '1px solid #f5c6c6', borderRadius: 4, padding: '1px 5px', fontWeight: 700 }}>YOU</span>}
                   {isCaptain && (
                     <button onClick={() => captainRemovePlayer(r.id)}
                       style={{ background: 'none', border: 'none', color: '#ccc', fontSize: 16, cursor: 'pointer', padding: '2px 4px', lineHeight: 1 }}>✕</button>
                   )}
                 </div>
-              ))}
-            </>
-          )}
+              ))
+            }
+          </div>
         </div>
 
         <div style={{ textAlign: 'center', padding: '20px 0 8px', fontSize: 12, color: '#bbb' }}>

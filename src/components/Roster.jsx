@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import Av from './Av'
 import PlayerForm from './PlayerForm'
 import BulkEdit from './BulkEdit'
+import { sb } from '../lib/supabase'
 
 export default function Roster({ players, isAdmin, canDelete, onAdd, onUpdate, onDelete, groupSlug }) {
   const [modal, setModal] = useState(null)
@@ -14,6 +15,13 @@ export default function Roster({ players, isAdmin, canDelete, onAdd, onUpdate, o
   const [inviteMsg, setInviteMsg] = useState('')
   const [inviteBusy, setInviteBusy] = useState(false)
 
+  // Link account state
+  const [linkPlayer, setLinkPlayer] = useState(null)
+  const [pendingProfiles, setPendingProfiles] = useState([])
+  const [linkSearch, setLinkSearch] = useState('')
+  const [linkBusy, setLinkBusy] = useState(false)
+  const [linkMsg, setLinkMsg] = useState('')
+
   const list = useMemo(() => players.filter(p => p.name.toLowerCase().includes(q.toLowerCase())), [players, q])
 
   const save = async f => {
@@ -24,6 +32,40 @@ export default function Roster({ players, isAdmin, canDelete, onAdd, onUpdate, o
   }
 
   const del = async id => { if (!window.confirm('Remove this player?')) return; await onDelete(id) }
+
+  const openLinkModal = async (player) => {
+    setLinkPlayer(player)
+    setLinkMsg('')
+    setLinkSearch('')
+    setLinkBusy(false)
+    // Load pending profiles not yet linked
+    const { data } = await sb.from('pending_profiles')
+      .select('id,first_name,last_name,email,auth_user_id,positions,dominant_foot,photo_url')
+      .in('status', ['pending', 'approved'])
+      .order('created_at', { ascending: false })
+    setPendingProfiles(data || [])
+  }
+
+  const doLink = async (profile) => {
+    if (!linkPlayer) return
+    setLinkBusy(true); setLinkMsg('')
+    // Set auth_user_id on the roster player (keep profile_complete false so they get prompted)
+    const { error } = await sb.from('players').update({
+      auth_user_id: profile.auth_user_id,
+      first_name: profile.first_name,
+      last_name: profile.last_name,
+      dominant_foot: profile.dominant_foot || null,
+      positions: profile.positions || ['MID'],
+      ...(profile.photo_url ? { photo_url: profile.photo_url } : {}),
+    }).eq('id', linkPlayer.id)
+    if (error) { setLinkMsg('Error: ' + error.message); setLinkBusy(false); return }
+    // Mark pending profile as linked
+    await sb.from('pending_profiles').update({ status: 'linked', reviewed_at: new Date().toISOString() }).eq('id', profile.id)
+    setLinkMsg(`✓ Linked! ${profile.first_name} will be prompted to complete their profile next time they log in.`)
+    setLinkBusy(false)
+    // Refresh roster
+    window.location.reload()
+  }
 
   const generateInvite = () => {
     if (!inviteEmail.trim()) { setInviteMsg('Enter an email address.'); return }
@@ -71,6 +113,7 @@ export default function Roster({ players, isAdmin, canDelete, onAdd, onUpdate, o
               </div>
               {isAdmin && (
                 <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
+                  {!p.auth_user_id && <button className="btn sm" style={{ color: '#7a4d00', borderColor: '#f0c060', fontSize: 11 }} onClick={() => openLinkModal(p)}>🔗 Link</button>}
                   {!p.auth_user_id && <button className="btn sm" style={{ color: '#1a4f80', borderColor: '#b5d4f4', fontSize: 11 }} onClick={() => { setInvitePlayer(p); setInviteEmail(''); setInviteLink(''); setInviteMsg('') }}>✉ Invite</button>}
                   <button className="btn sm" onClick={() => setModal(p)}>Edit</button>
                   {canDelete && <button className="btn sm danger" onClick={() => del(p.id)}>✕</button>}
@@ -86,6 +129,52 @@ export default function Roster({ players, isAdmin, canDelete, onAdd, onUpdate, o
           <div className="modal">
             <h2>{modal === 'add' ? 'Add player' : 'Edit — ' + modal.name}</h2>
             <PlayerForm player={modal !== 'add' ? modal : null} onSave={save} onCancel={() => setModal(null)} busy={busy} />
+          </div>
+        </div>
+      )}
+
+      {linkPlayer && (
+        <div className="modal-bg" onClick={e => e.target === e.currentTarget && setLinkPlayer(null)}>
+          <div className="modal" style={{ maxWidth: 460 }}>
+            <h2>Link account — {linkPlayer.name}</h2>
+            <p style={{ fontSize: 13, color: '#666', marginBottom: 14, lineHeight: 1.5 }}>
+              Select a registered user below to link them to this roster entry. They'll be prompted to complete their profile the next time they log in.
+            </p>
+            <input value={linkSearch} onChange={e => setLinkSearch(e.target.value)}
+              placeholder="🔍 Search by name or email…" autoFocus style={{ marginBottom: 10 }} />
+            {pendingProfiles.length === 0
+              ? <div style={{ padding: '16px 0', textAlign: 'center', color: '#888', fontSize: 13 }}>
+                  No pending registrations found. Ask the player to register first, then link here.
+                </div>
+              : <div style={{ maxHeight: 280, overflowY: 'auto', border: '1px solid #e0e0e0', borderRadius: 8, marginBottom: 12 }}>
+                  {pendingProfiles
+                    .filter(p => {
+                      const name = `${p.first_name} ${p.last_name}`.toLowerCase()
+                      const s = linkSearch.toLowerCase()
+                      return !s || name.includes(s) || p.email?.toLowerCase().includes(s)
+                    })
+                    .map(p => (
+                      <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderBottom: '1px solid #f5f5f5', cursor: 'pointer' }}
+                        onClick={() => !linkBusy && doLink(p)}>
+                        {p.photo_url
+                          ? <img src={p.photo_url} style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} alt="" />
+                          : <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#e8f2fc', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>👤</div>
+                        }
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 600, fontSize: 14 }}>{p.first_name} {p.last_name}</div>
+                          <div style={{ fontSize: 12, color: '#888', marginTop: 1 }}>{p.email}</div>
+                          {p.dominant_foot && <div style={{ fontSize: 11, color: '#aaa' }}>{p.dominant_foot} foot · {(p.positions || []).join('/')}</div>}
+                        </div>
+                        <span style={{ fontSize: 12, color: '#2d5509', fontWeight: 700, flexShrink: 0 }}>
+                          {linkBusy ? '…' : '🔗 Link'}
+                        </span>
+                      </div>
+                    ))
+                  }
+                </div>
+            }
+            {linkMsg && <div className={`alert ${linkMsg.startsWith('Error') ? 'red' : 'green'}`} style={{ marginBottom: 10 }}>{linkMsg}</div>}
+            <button className="btn full" onClick={() => setLinkPlayer(null)}>Close</button>
           </div>
         </div>
       )}
