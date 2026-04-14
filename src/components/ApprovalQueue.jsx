@@ -115,7 +115,7 @@ export default function ApprovalQueue({ onClose, players, onApproved, groupId })
             added_by: 'captain',
           })
         }
-        await sb.from('pending_profiles').update({ status: 'approved', reviewed_at: new Date().toISOString() }).eq('id', p.id)
+        await sb.from('pending_profiles').update({ status: 'linked', reviewed_at: new Date().toISOString() }).eq('id', p.id)
         setPending(prev => prev.filter(x => x.id !== p.id))
         logActivity({ action: 'profile_approved', playerName: fullName, groupId, notes: p.email })
         onApproved(); setMsg(`✓ ${fullName} added to roster`)
