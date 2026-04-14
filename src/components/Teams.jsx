@@ -492,8 +492,27 @@ export default function Teams({ players, onSaveGame, isAdmin, games, groupId, gr
 
     const pName = r => {
       if (r.players?.first_name) return `${r.players.first_name} ${r.players.last_name || ''}`.trim()
-      return r.players?.name || 'Unknown'
+      return r.players?.name || '(no profile)'
     }
+
+    const removeRsvp = async (rsvpId) => {
+      await sb.from('rsvps').delete().eq('id', rsvpId)
+      await loadRsvpLive(rsvpGameId)
+    }
+
+    const addFromRosterToRsvp = async (p) => {
+      const existing = rsvpData.find(r => r.player_id === p.id)
+      if (existing) {
+        await sb.from('rsvps').update({ status: 'in' }).eq('id', existing.id)
+      } else {
+        await sb.from('rsvps').insert({ game_id: rsvpGameId, player_id: p.id, status: 'in', guests: 0, added_by: 'captain' })
+      }
+      await loadRsvpLive(rsvpGameId)
+      setAddSearch('')
+      setShowAddPlayer(false)
+    }
+
+    const rsvpdIds = new Set(rsvpData.map(r => r.player_id).filter(Boolean))
 
     return (
       <div className="section">
@@ -527,6 +546,34 @@ export default function Teams({ players, onSaveGame, isAdmin, games, groupId, gr
           </div>
         )}
 
+        {/* Captain: add player */}
+        {isAdmin && (
+          <div className="card-wrap" style={{ padding: '10px 14px', marginBottom: 10 }}>
+            {!showAddPlayer
+              ? <button className="btn full" style={{ fontSize: 13 }} onClick={() => setShowAddPlayer(true)}>+ Add player to RSVP</button>
+              : <>
+                  <input value={addSearch} onChange={e => setAddSearch(e.target.value)}
+                    placeholder="🔍 Search roster…" autoFocus style={{ marginBottom: 6 }} />
+                  <div style={{ maxHeight: 160, overflowY: 'auto', border: '1px solid #e0e0e0', borderRadius: 7 }}>
+                    {players
+                      .filter(p => !rsvpdIds.has(p.id))
+                      .filter(p => p.name?.toLowerCase().includes(addSearch.toLowerCase()))
+                      .slice(0, 10)
+                      .map(p => (
+                        <div key={p.id} style={{ display: 'flex', alignItems: 'center', padding: '7px 10px', borderBottom: '1px solid #f5f5f5', cursor: 'pointer' }}
+                          onClick={() => addFromRosterToRsvp(p)}>
+                          <span style={{ flex: 1, fontSize: 13 }}>{p.name}</span>
+                          <span style={{ fontSize: 12, color: '#2d5509', fontWeight: 700 }}>+ Add</span>
+                        </div>
+                      ))
+                    }
+                  </div>
+                  <button className="btn full" style={{ marginTop: 6, fontSize: 12 }} onClick={() => { setShowAddPlayer(false); setAddSearch('') }}>Cancel</button>
+                </>
+            }
+          </div>
+        )}
+
         {/* In list */}
         <div className="card-wrap" style={{ padding: '12px 14px', marginBottom: 10 }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: '#2d5509', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
@@ -539,6 +586,8 @@ export default function Teams({ players, onSaveGame, isAdmin, games, groupId, gr
                 <div style={{ width: 24, height: 24, borderRadius: '50%', background: '#eaf5e0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: '#2d5509', flexShrink: 0 }}>✓</div>
                 <span style={{ flex: 1, fontSize: 14, fontWeight: 500 }}>{pName(r)}</span>
                 {r.guests > 0 && <span style={{ fontSize: 12, color: '#888' }}>+{r.guests} guest{r.guests > 1 ? 's' : ''}</span>}
+                {r.added_by === 'captain' && <span style={{ fontSize: 10, background: '#fff5e0', color: '#7a4d00', border: '1px solid #f0c060', borderRadius: 4, padding: '1px 5px', fontWeight: 700 }}>CAP</span>}
+                {isAdmin && <button onClick={() => removeRsvp(r.id)} style={{ background: 'none', border: 'none', color: '#ccc', fontSize: 16, cursor: 'pointer', padding: '0 2px', lineHeight: 1 }} title="Remove">✕</button>}
               </div>
             ))
           }
@@ -549,7 +598,10 @@ export default function Teams({ players, onSaveGame, isAdmin, games, groupId, gr
           <div className="card-wrap" style={{ padding: '12px 14px', marginBottom: 10, opacity: 0.7 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Out ({outList.length})</div>
             {outList.map(r => (
-              <div key={r.id} style={{ fontSize: 13, color: '#888', padding: '4px 0' }}>✗ {pName(r)}</div>
+              <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>
+                <span style={{ flex: 1, fontSize: 13, color: '#888' }}>✗ {pName(r)}</span>
+                {isAdmin && <button onClick={() => removeRsvp(r.id)} style={{ background: 'none', border: 'none', color: '#ccc', fontSize: 16, cursor: 'pointer', padding: '0 2px', lineHeight: 1 }} title="Remove">✕</button>}
+              </div>
             ))}
           </div>
         )}
@@ -564,7 +616,19 @@ export default function Teams({ players, onSaveGame, isAdmin, games, groupId, gr
           <button className="btn primary full" onClick={genFromRsvp} disabled={totalIn < 2}>
             Generate teams from {totalIn} player{totalIn !== 1 ? 's' : ''}
           </button>
-          <button className="btn full" style={{ fontSize: 13 }} onClick={() => setStep('attend')}>
+          <button className="btn full" style={{ fontSize: 13 }} onClick={() => {
+            // Pre-populate attending from RSVP in-list
+            const inIds = rsvpData.filter(r => r.status === 'in' && r.player_id).map(r => r.player_id)
+            setAttending(inIds)
+            const guestMap = {}
+            rsvpData.filter(r => r.status === 'in' && r.player_id && r.guests > 0).forEach(r => { guestMap[r.player_id] = r.guests })
+            setGuests(guestMap)
+            if (rsvpGame?.scheduled_at) {
+              setGameDate(rsvpGame.scheduled_at.slice(0, 10))
+              setGameTime(rsvpGame.scheduled_at.slice(11, 16))
+            }
+            setStep('attend')
+          }}>
             Switch to manual selection
           </button>
         </div>
