@@ -90,7 +90,9 @@ export default function Group() {
   }
 
   async function fetchPendingCount() {
-    const { count } = await sb.from('pending_profiles').select('*', { count: 'exact', head: true }).eq('status', 'pending')
+    const { count } = await sb.from('pending_profiles')
+      .select('*', { count: 'exact', head: true })
+      .in('status', ['pending', 'approved'])
     setPendingCount(count || 0)
   }
 
