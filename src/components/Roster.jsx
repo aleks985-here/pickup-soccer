@@ -50,8 +50,10 @@ export default function Roster({ players, isAdmin, canDelete, onAdd, onUpdate, o
     if (!linkPlayer) return
     setLinkBusy(true); setLinkMsg('')
     // Set auth_user_id on the roster player (keep profile_complete false so they get prompted)
+    const fullName = `${profile.first_name} ${profile.last_name}`.trim()
     const { error } = await sb.from('players').update({
       auth_user_id: profile.auth_user_id,
+      name: fullName,
       first_name: profile.first_name,
       last_name: profile.last_name,
       dominant_foot: profile.dominant_foot || null,

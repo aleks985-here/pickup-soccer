@@ -252,7 +252,7 @@ export default function Profile() {
       const { error } = await sb.from('players').update({
         first_name: firstName.trim(),
         last_name: lastName.trim(),
-        name: `${firstName.trim()} ${lastName.trim().charAt(0)}.`,
+        name: `${firstName.trim()} ${lastName.trim()}`,
         date_of_birth: dob,
         is_minor: age < 18,
         city: city.trim(),
