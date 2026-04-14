@@ -205,7 +205,7 @@ export default function Teams({ players, onSaveGame, isAdmin, games, groupId, gr
 
   const save = async () => {
     setBusy(true)
-    const teamData = teams.map(t => t.map(p => ({ name: p.name, positions: p.positions || ['MID'], isGuest: p.isGuest || false, photo_url: p.photo_url || null })))
+    const teamData = teams.map(t => t.map(p => ({ name: p.name, positions: p.positions || ['MID'], isGuest: p.isGuest || false, photo_url: p.photo_url || null, dominant_foot: p.dominant_foot || null })))
     await onSaveGame({
       game_date: fmtDate(),
       team_count: n,
@@ -660,6 +660,11 @@ export default function Teams({ players, onSaveGame, isAdmin, games, groupId, gr
               <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                 {(p.positions || ['MID']).map(pos => <span key={pos} className={`ptag ${pos}`}>{pos}</span>)}
               </div>
+              {isAdmin && p.dominant_foot && p.dominant_foot !== 'Right' && (
+                <span style={{ fontSize: 10, background: '#f0f0ff', color: '#555', border: '1px solid #ccd', borderRadius: 4, padding: '1px 4px', marginRight: 2, flexShrink: 0 }}>
+                  {p.dominant_foot === 'Left' ? 'L' : 'L/R'}
+                </span>
+              )}
               {isAdmin && <span style={{ fontSize: 11, color: '#888', margin: '0 4px', flexShrink: 0 }}>★{p.skill}</span>}
               <button className="btn sm warn" style={{ padding: '3px 8px', fontSize: 11, flexShrink: 0 }} onClick={() => setSubModal({ player: p, teamIdx: ti })}>SUB</button>
             </div>

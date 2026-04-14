@@ -103,7 +103,7 @@ export default function Group() {
     setGroupId(grp.id)
 
     const { data: pgData } = await sb.from('player_groups')
-      .select('skill, players(id,name,positions,photo_url,auth_user_id,donor,profile_complete,date_of_birth,is_minor)')
+      .select('skill, players(id,name,positions,dominant_foot,photo_url,auth_user_id,donor,profile_complete,date_of_birth,is_minor)')
       .eq('group_id', grp.id)
       .eq('active', true)
     const ps = (pgData || [])
@@ -198,7 +198,12 @@ export default function Group() {
             </button>
           )}
           {isAdmin && <button className="hdr-btn" onClick={() => setShowSettings(true)}>⚙️</button>}
-          {user && <a href="/profile" className="hdr-btn" style={{ fontSize: 11, textDecoration: 'none', padding: '5px 8px' }}>👤</a>}
+          {user && (
+            <a href="/profile" className="hdr-btn" style={{ display: 'flex', alignItems: 'center', gap: 5, textDecoration: 'none', padding: '4px 8px' }}>
+              <span style={{ fontSize: 13 }}>👤</span>
+              <span style={{ fontSize: 11, maxWidth: 70, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{userDisplayName || 'Profile'}</span>
+            </a>
+          )}
           {user
             ? <button className="hdr-btn" onClick={handleLogout}>Logout</button>
             : <button className="hdr-btn" onClick={() => setShowLogin(true)}>Login</button>

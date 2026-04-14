@@ -276,6 +276,16 @@ export default function Rsvp() {
           <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12 }}>{groupSlug.charAt(0).toUpperCase() + groupSlug.slice(1)}</div>
         </div>
         <div style={{ flex: 1 }} />
+        {user && (
+          <a href="/profile" style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.15)', borderRadius: 6, padding: '5px 8px', textDecoration: 'none', marginRight: 4 }}>
+            {myPlayer?.photo_url
+              ? <img src={myPlayer.photo_url} style={{ width: 22, height: 22, borderRadius: '50%', objectFit: 'cover' }} alt="" />
+              : <span style={{ fontSize: 14 }}>👤</span>}
+            <span style={{ color: '#fff', fontSize: 12, fontWeight: 600, maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {myPlayer ? (myPlayer.first_name || myPlayer.name) : user.email?.split('@')[0]}
+            </span>
+          </a>
+        )}
         {user
           ? <button onClick={() => sb.auth.signOut()} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: 6, padding: '5px 10px', fontSize: 12, cursor: 'pointer' }}>Logout</button>
           : <button onClick={() => setShowLogin(true)} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: 6, padding: '5px 10px', fontSize: 12, cursor: 'pointer' }}>Login</button>

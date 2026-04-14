@@ -62,6 +62,11 @@ export default function Roster({ players, isAdmin, canDelete, onAdd, onUpdate, o
                 <div style={{ display: 'flex', gap: 5, marginTop: 3, flexWrap: 'wrap', alignItems: 'center' }}>
                   {isAdmin && <span className="spill">★ {p.skill}</span>}
                   {(p.positions || ['MID']).map(pos => <span key={pos} className={`ptag ${pos}`}>{pos}</span>)}
+                  {p.dominant_foot && p.dominant_foot !== 'Right' && (
+                    <span style={{ fontSize: 10, background: '#f0f0ff', color: '#555', border: '1px solid #ccd', borderRadius: 4, padding: '1px 5px', fontWeight: 600 }}>
+                      {p.dominant_foot === 'Left' ? '🦶L' : '🦶L/R'}
+                    </span>
+                  )}
                 </div>
               </div>
               {isAdmin && (

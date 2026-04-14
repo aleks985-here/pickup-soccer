@@ -236,7 +236,7 @@ export default function Profile() {
       const { error: upErr } = await sb.storage.from('avatars').upload(`avatars/${user.id}.${ext}`, photoFile, { upsert: true })
       if (!upErr) {
         const { data: urlData } = sb.storage.from('avatars').getPublicUrl(`avatars/${user.id}.${ext}`)
-        photoUrl = urlData.publicUrl
+        photoUrl = `${urlData.publicUrl}?t=${Date.now()}`
       }
     }
 

@@ -53,8 +53,11 @@ export default function Landing() {
           <span>Pickup Soccer</span>
         </div>
         <div className="landing-header-right">
-          {user && userDisplayName && (
-            <span style={{ color: '#fff', fontSize: 13, fontWeight: 600, marginRight: 6 }}>{userDisplayName}</span>
+          {user && (
+            <a href="/profile" className="hdr-btn" style={{ display: 'flex', alignItems: 'center', gap: 5, textDecoration: 'none', marginRight: 2 }}>
+              <span style={{ fontSize: 14 }}>👤</span>
+              {userDisplayName && <span style={{ fontSize: 12, fontWeight: 600, maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{userDisplayName}</span>}
+            </a>
           )}
           {user
             ? <button className="hdr-btn" onClick={() => sb.auth.signOut()}>Logout</button>
