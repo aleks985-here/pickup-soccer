@@ -103,7 +103,7 @@ export default function Group() {
     setGroupId(grp.id)
 
     const { data: pgData } = await sb.from('player_groups')
-      .select('skill, players(id,name,positions,dominant_foot,photo_url,auth_user_id,donor,profile_complete,date_of_birth,is_minor)')
+      .select('skill, players(id,name,positions,dominant_foot,photo_url,auth_user_id,donor,profile_complete)')
       .eq('group_id', grp.id)
       .eq('active', true)
     const ps = (pgData || [])
