@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
-import { sb } from '../lib/supabase'
+import { sb, logActivity } from '../lib/supabase'
 
-export default function ApprovalQueue({ onClose, players, onApproved }) {
+export default function ApprovalQueue({ onClose, players, onApproved, groupId }) {
   const [pending, setPending] = useState([])
   const [busy, setBusy] = useState(null)
   const [msg, setMsg] = useState('')
@@ -24,6 +24,7 @@ export default function ApprovalQueue({ onClose, players, onApproved }) {
       if (!error) {
         await sb.from('pending_profiles').update({ status: 'linked', reviewed_at: new Date().toISOString() }).eq('id', p.id)
         setPending(prev => prev.filter(x => x.id !== p.id))
+        logActivity({ action: 'profile_linked', playerName: `${p.first_name} ${p.last_name}`, groupId, notes: p.email })
         onApproved(); setMsg('Linked to existing player ✓')
       } else setMsg('Error: ' + error.message)
     } else {
@@ -40,6 +41,7 @@ export default function ApprovalQueue({ onClose, players, onApproved }) {
       if (!error) {
         await sb.from('pending_profiles').update({ status: 'approved', reviewed_at: new Date().toISOString() }).eq('id', p.id)
         setPending(prev => prev.filter(x => x.id !== p.id))
+        logActivity({ action: 'profile_approved', playerName: `${p.first_name} ${p.last_name}`, groupId, notes: p.email })
         onApproved(); setMsg('Added to roster as new player ✓')
       } else setMsg('Error: ' + error.message)
     }
@@ -51,6 +53,7 @@ export default function ApprovalQueue({ onClose, players, onApproved }) {
     setBusy(p.id)
     await sb.from('pending_profiles').update({ status: 'rejected', rejection_reason: reason || 'Not approved.', reviewed_at: new Date().toISOString() }).eq('id', p.id)
     setPending(prev => prev.filter(x => x.id !== p.id))
+    logActivity({ action: 'profile_rejected', playerName: `${p.first_name} ${p.last_name}`, groupId, notes: reason || p.email })
     setBusy(null); setMsg('Rejected ✓')
   }
 

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import Av from './Av'
 import { LABELS } from '../lib/constants'
 import { genTeams } from '../lib/utils'
-import { sb, sendEmail, sendTelegram } from '../lib/supabase'
+import { sb, sendEmail, sendTelegram, logActivity } from '../lib/supabase'
 
 // ─── Sub modal ────────────────────────────────────────────────────────────────
 function SubModal({ player, teamIdx, teams, bench, onSub, onClose, isAdmin }) {
@@ -166,6 +166,7 @@ export default function Teams({ players, onSaveGame, isAdmin, games, groupId, gr
   const reshuffleAndNotify = async () => {
     const newTeams = genTeams(presentPlayers, n)
     setTeams(newTeams); setSaved(false); setSubs([])
+    logActivity({ action: 'teams_reshuffled', groupId, notes: fmtDate() })
     // If already published, re-notify Telegram with updated teams
     if (saved && groupId) {
       const teamData = newTeams.map(t => t.map(p => ({ name: p.name, positions: p.positions || ['MID'], isGuest: p.isGuest || false })))
@@ -217,6 +218,7 @@ export default function Teams({ players, onSaveGame, isAdmin, games, groupId, gr
       subs,
     })
     setSaved(true); setBusy(false)
+    logActivity({ action: 'teams_published', groupId, notes: `${fmtDate()} · ${totalCount} players` })
 
     // Send email + Telegram notifications
     if (groupId) {
@@ -256,6 +258,7 @@ export default function Teams({ players, onSaveGame, isAdmin, games, groupId, gr
     if (error || !newGame) return
     setRsvpGameId(newGame.id)
     setRsvpGame(newGame)
+    logActivity({ action: 'rsvp_created', groupId, notes: gameLabel })
     setStep('rsvp-link')
 
     const link = `${window.location.origin}/${groupSlug}/rsvp/${newGame.id}`

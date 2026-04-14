@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import Av from './Av'
 import InviteLink from './InviteLink'
-import { sb } from '../lib/supabase'
+import { sb, logActivity } from '../lib/supabase'
 
 export default function Settings({ role, players, onClose, groupSlug, groupId }) {
   const [captains, setCaptains] = useState([])
@@ -12,8 +12,48 @@ export default function Settings({ role, players, onClose, groupSlug, groupId })
   const [tab, setTab] = useState('captains')
   const [addingFor, setAddingFor] = useState(null)
   const [emailInput, setEmailInput] = useState('')
+  const [activityLog, setActivityLog] = useState([])
+  const [activityLoading, setActivityLoading] = useState(false)
 
   useEffect(() => { loadSettings() }, [groupId])
+  useEffect(() => { if (tab === 'activity') loadActivity() }, [tab])
+
+  async function loadActivity() {
+    setActivityLoading(true)
+    const { data } = await sb.from('activity_log')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(200)
+    setActivityLog(data || [])
+    setActivityLoading(false)
+  }
+
+  function timeAgo(ts) {
+    const diff = Date.now() - new Date(ts).getTime()
+    const m = Math.floor(diff / 60000)
+    if (m < 1) return 'just now'
+    if (m < 60) return `${m}m ago`
+    const h = Math.floor(m / 60)
+    if (h < 24) return `${h}h ago`
+    const d = Math.floor(h / 24)
+    if (d < 30) return `${d}d ago`
+    return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  }
+
+  const ACTION_META = {
+    player_added:      { icon: '➕', color: '#2d5509', bg: '#eaf5e0', label: 'Added' },
+    player_removed:    { icon: '✕',  color: '#c0392b', bg: '#fdecea', label: 'Removed' },
+    player_updated:    { icon: '✏️', color: '#555',    bg: '#f5f5f5', label: 'Updated' },
+    skill_changed:     { icon: '★',  color: '#c07a00', bg: '#fef6e4', label: 'Skill changed' },
+    rsvp_created:      { icon: '📨', color: '#1a4f80', bg: '#e8f2fc', label: 'RSVP created' },
+    teams_published:   { icon: '⚽', color: '#2d5509', bg: '#eaf5e0', label: 'Teams published' },
+    teams_reshuffled:  { icon: '🔄', color: '#1a4f80', bg: '#e8f2fc', label: 'Teams reshuffled' },
+    profile_approved:  { icon: '✓',  color: '#2d5509', bg: '#eaf5e0', label: 'Profile approved' },
+    profile_linked:    { icon: '🔗', color: '#2d5509', bg: '#eaf5e0', label: 'Profile linked' },
+    profile_rejected:  { icon: '✗',  color: '#c0392b', bg: '#fdecea', label: 'Profile rejected' },
+    captain_added:     { icon: '👥', color: '#1a4f80', bg: '#e8f2fc', label: 'Captain added' },
+    captain_removed:   { icon: '👤', color: '#c0392b', bg: '#fdecea', label: 'Captain removed' },
+  }
 
   async function loadSettings() {
     const [{ data: r }, { data: s }] = await Promise.all([
@@ -33,6 +73,7 @@ export default function Settings({ role, players, onClose, groupSlug, groupId })
     const { error } = await sb.from('user_roles').insert({ email, role: 'captain', player_id: player.id, group_id: groupId })
     if (error) setMsg('Error: ' + error.message)
     else {
+      logActivity({ action: 'captain_added', playerName: player.name, playerId: player.id, groupId, notes: email })
       setMsg(`${player.name} added as captain. They sign in with ${email}.`)
       setAddingFor(null); setEmailInput('')
       await loadSettings()
@@ -43,6 +84,7 @@ export default function Settings({ role, players, onClose, groupSlug, groupId })
   const removeCaptain = async (id, name) => {
     if (!window.confirm(`Remove captain access for ${name}?`)) return
     await sb.from('user_roles').delete().eq('id', id)
+    logActivity({ action: 'captain_removed', groupId, notes: name })
     setMsg('Captain removed.'); await loadSettings()
   }
 
@@ -67,8 +109,8 @@ export default function Settings({ role, players, onClose, groupSlug, groupId })
         <button className="btn sm" onClick={onClose}>← Back</button>
       </div>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-        {[['captains', '👥 Captains'], ['group', '⚙️ Group']].map(([t, l]) => (
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+        {[['captains', '👥 Captains'], ['group', '⚙️ Group'], ['activity', '📋 Activity']].map(([t, l]) => (
           <button key={t} className={`btn sm${tab === t ? ' primary' : ''}`} onClick={() => setTab(t)} style={{ flex: 1, justifyContent: 'center' }}>{l}</button>
         ))}
         {settings?.donations_enabled && <button className={`btn sm${tab === 'support' ? ' primary' : ''}`} onClick={() => setTab('support')} style={{ flex: 1, justifyContent: 'center' }}>💚 Support</button>}
@@ -192,6 +234,64 @@ export default function Settings({ role, players, onClose, groupSlug, groupId })
             </div>
           ))}
         </div>
+      </>}
+
+      {tab === 'activity' && <>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <div style={{ fontSize: 13, color: '#666' }}>Last 90 days · all groups</div>
+          <button className="btn sm" onClick={loadActivity}>↺ Refresh</button>
+        </div>
+        {activityLoading
+          ? <div style={{ textAlign: 'center', padding: 24, color: '#888', fontSize: 13 }}>Loading…</div>
+          : activityLog.length === 0
+            ? <div style={{ textAlign: 'center', padding: 24, color: '#aaa', fontSize: 13 }}>No activity yet. Changes made by captains and admins will appear here.</div>
+            : <div className="card-wrap" style={{ padding: '0 0 4px' }}>
+                {activityLog.map((entry, i) => {
+                  const meta = ACTION_META[entry.action] || { icon: '•', color: '#888', bg: '#f5f5f5', label: entry.action }
+                  let description = ''
+                  if (entry.action === 'skill_changed') {
+                    description = `${entry.player_name}: skill ${entry.old_value} → ${entry.new_value}`
+                  } else if (entry.action === 'player_added') {
+                    description = `${entry.player_name} added to roster`
+                    if (entry.notes) description += ` (${entry.notes})`
+                  } else if (entry.action === 'player_removed') {
+                    description = `${entry.player_name} removed from roster`
+                  } else if (entry.action === 'player_updated') {
+                    description = `${entry.player_name} profile updated`
+                    if (entry.notes) description += ` (${entry.notes})`
+                  } else if (entry.action === 'rsvp_created') {
+                    description = `RSVP created: ${entry.notes || ''}`
+                  } else if (entry.action === 'teams_published') {
+                    description = `Teams published: ${entry.notes || ''}`
+                  } else if (entry.action === 'teams_reshuffled') {
+                    description = `Teams reshuffled: ${entry.notes || ''}`
+                  } else if (entry.action === 'profile_approved') {
+                    description = `${entry.player_name} approved as new player`
+                  } else if (entry.action === 'profile_linked') {
+                    description = `${entry.player_name} linked to existing roster entry`
+                  } else if (entry.action === 'profile_rejected') {
+                    description = `${entry.player_name} profile rejected`
+                  } else if (entry.action === 'captain_added') {
+                    description = `${entry.player_name} promoted to captain (${entry.notes})`
+                  } else if (entry.action === 'captain_removed') {
+                    description = `${entry.notes} removed as captain`
+                  }
+                  return (
+                    <div key={entry.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 14px', borderBottom: i < activityLog.length - 1 ? '1px solid #f5f5f5' : 'none' }}>
+                      <div style={{ width: 28, height: 28, borderRadius: '50%', background: meta.bg, color: meta.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0, fontWeight: 700, border: `1px solid ${meta.color}22` }}>
+                        {meta.icon}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: '#222', lineHeight: 1.4 }}>{description}</div>
+                        <div style={{ fontSize: 11, color: '#aaa', marginTop: 2 }}>
+                          {entry.actor_email.split('@')[0]} · {timeAgo(entry.created_at)}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+        }
       </>}
 
       {msg && <div className={`alert ${msg.startsWith('Error') ? 'red' : 'green'}`} style={{ marginTop: 12 }}>{msg}</div>}

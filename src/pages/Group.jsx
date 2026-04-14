@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { sb } from '../lib/supabase'
+import { sb, logActivity } from '../lib/supabase'
 import { LOGO_URL, GROUP_INFO } from '../lib/constants'
 import Roster from '../components/Roster'
 import Teams from '../components/Teams'
@@ -120,18 +120,29 @@ export default function Group() {
   const addPlayer = async f => {
     if (!groupId) return
     const { data: newP } = await sb.from('players').insert({ name: f.name, positions: f.positions, games_played: 0 }).select().single()
-    if (newP) await sb.from('player_groups').insert({ player_id: newP.id, group_id: groupId, skill: f.skill, added_by: 'captain' })
+    if (newP) {
+      await sb.from('player_groups').insert({ player_id: newP.id, group_id: groupId, skill: f.skill, added_by: 'captain' })
+      logActivity({ action: 'player_added', playerName: f.name, playerId: newP.id, groupId, notes: `skill: ${f.skill}, pos: ${(f.positions || []).join('/')}` })
+    }
     await load()
   }
   const updatePlayer = async (id, f) => {
     if (!groupId) return
+    const old = players.find(p => p.id === id)
     await sb.from('players').update({ name: f.name, positions: f.positions }).eq('id', id)
     await sb.from('player_groups').update({ skill: f.skill }).eq('player_id', id).eq('group_id', groupId)
+    if (old && String(old.skill) !== String(f.skill)) {
+      logActivity({ action: 'skill_changed', playerName: f.name, playerId: id, groupId, oldValue: String(old.skill), newValue: String(f.skill) })
+    } else {
+      logActivity({ action: 'player_updated', playerName: f.name, playerId: id, groupId, notes: `pos: ${(f.positions || []).join('/')}` })
+    }
     await load()
   }
   const deletePlayer = async id => {
     if (!groupId) return
+    const p = players.find(p => p.id === id)
     await sb.from('player_groups').update({ active: false }).eq('player_id', id).eq('group_id', groupId)
+    logActivity({ action: 'player_removed', playerName: p?.name, playerId: id, groupId })
     await load()
   }
   const saveGame = async data => {
@@ -219,7 +230,7 @@ export default function Group() {
       {view === 'game' && <Teams players={players} isAdmin={isCaptain} onSaveGame={saveGame} games={games} groupId={groupId} groupSlug={groupSlug} />}
       {view === 'history' && <History games={games} players={players} isAdmin={isCaptain} canDelete={isAdmin} onUpdateGame={updateGame} onDeleteGame={deleteGame} />}
       {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
-      {showApprovals && <ApprovalQueue onClose={() => { setShowApprovals(false); fetchPendingCount() }} players={players} onApproved={() => { load(); fetchPendingCount() }} />}
+      {showApprovals && <ApprovalQueue onClose={() => { setShowApprovals(false); fetchPendingCount() }} players={players} groupId={groupId} onApproved={() => { load(); fetchPendingCount() }} />}
       <div style={{ textAlign: 'center', padding: '24px 16px 8px', borderTop: '1px solid #e0e0e0', marginTop: 8 }}>
         <a href="/privacy" target="_blank" style={{ fontSize: 12, color: '#888', textDecoration: 'none', marginRight: 16 }}>Privacy Policy</a>
         <a href="/deletion" target="_blank" style={{ fontSize: 12, color: '#888', textDecoration: 'none', marginRight: 16 }}>Data Deletion</a>

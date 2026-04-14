@@ -18,3 +18,23 @@ async function callEdgeFunction(fnName, body) {
 
 export const sendEmail = (type, data) => callEdgeFunction('send-email', { type, data })
 export const sendTelegram = (type, data) => callEdgeFunction('send-telegram', { type, data })
+
+export async function logActivity({ action, playerName = null, playerId = null, groupId = null, oldValue = null, newValue = null, notes = null }) {
+  try {
+    const { data: { session } } = await sb.auth.getSession()
+    const email = session?.user?.email
+    if (!email) return
+    await sb.from('activity_log').insert({
+      actor_email: email,
+      action,
+      player_name: playerName,
+      player_id: playerId,
+      group_id: groupId,
+      old_value: oldValue,
+      new_value: newValue,
+      notes,
+    })
+  } catch (e) {
+    console.warn('logActivity failed:', e.message)
+  }
+}
