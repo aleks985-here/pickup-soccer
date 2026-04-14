@@ -27,11 +27,13 @@ export default function Profile() {
   const [notes, setNotes] = useState('')
   const [suggestedPlayerId, setSuggestedPlayerId] = useState('')
   const [primaryGroupId, setPrimaryGroupId] = useState('')
+  const [additionalGroupIds, setAdditionalGroupIds] = useState([])
   const [isUnder13, setIsUnder13] = useState(false)
 
   // Roster & groups
   const [roster, setRoster] = useState([])
   const [groups, setGroups] = useState([])
+  const [linkedPlayerIds, setLinkedPlayerIds] = useState(new Set())
 
   // Photo
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState(null)
@@ -66,12 +68,14 @@ export default function Profile() {
   }, [cropOpen])
 
   async function loadData() {
-    const [{ data: rosterData }, { data: groupsData }] = await Promise.all([
-      sb.from('players').select('id,name').order('name'),
-      sb.from('groups').select('id,slug,name').order('name'),
+    const [{ data: rosterData }, { data: groupsData }, { data: linkedData }] = await Promise.all([
+      sb.from('players').select('id,name,primary_group_id').order('name'),
+      sb.from('groups').select('id,slug,name,default_day,default_time').order('name'),
+      sb.from('players').select('id').not('auth_user_id', 'is', null),
     ])
     setRoster(rosterData || [])
     setGroups(groupsData || [])
+    setLinkedPlayerIds(new Set((linkedData || []).map(p => p.id)))
 
     const { data: linked } = await sb.from('players').select('*').eq('auth_user_id', user.id).maybeSingle()
     if (linked) {
@@ -79,6 +83,7 @@ export default function Profile() {
       setLinkedId(linked.id)
       prefillForm(linked)
       if (linked.primary_group_id) setPrimaryGroupId(linked.primary_group_id)
+      if (linked.additional_group_ids?.length) setAdditionalGroupIds(linked.additional_group_ids)
       setAlert({ msg: '✓ Your profile is approved and you are on the roster.', type: 'green' })
       return
     }
@@ -254,8 +259,14 @@ export default function Profile() {
         league_experience: league,
         player_notes: notes.trim() || null,
         primary_group_id: primaryGroupId || null,
+        additional_group_ids: additionalGroupIds,
         ...(photoUrl ? { photo_url: photoUrl } : {}),
       }).eq('id', linkedId)
+      // Ensure player_groups rows exist for all selected groups
+      const allGroupIds = [primaryGroupId, ...additionalGroupIds].filter(Boolean)
+      for (const gid of allGroupIds) {
+        await sb.from('player_groups').upsert({ player_id: linkedId, group_id: gid, active: true }, { onConflict: 'player_id,group_id', ignoreDuplicates: false })
+      }
       setSaving(false)
       if (error) { setAlert({ msg: 'Error: ' + error.message, type: 'red' }); return }
       setAlert({ msg: '✓ Profile updated!', type: 'green' })
@@ -279,6 +290,8 @@ export default function Profile() {
       player_notes: notes.trim() || null,
       suggested_player_id: suggestedPlayerId || null,
       suggested_player_name: sugName || null,
+      primary_group_id: primaryGroupId || null,
+      additional_group_ids: additionalGroupIds,
       status: 'pending',
       ...(photoUrl ? { photo_url: photoUrl } : {}),
     }
@@ -467,25 +480,51 @@ export default function Profile() {
         </PCard>
 
         {/* PRIMARY LOCATION */}
-        <PCard title="Primary playing location">
-          <PField label="Where do you usually play?" required>
-            <PSelect value={primaryGroupId} onChange={e => setPrimaryGroupId(e.target.value)}>
-              <option value="">Select a group…</option>
-              {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+        <PCard title="Playing location">
+          <PField label={<>Primary group <span style={{ color: '#c0392b' }}>*</span></>}>
+            <PSelect value={primaryGroupId} onChange={e => { setPrimaryGroupId(e.target.value); setSuggestedPlayerId('') }}>
+              <option value="">Select your main group…</option>
+              {groups.map(g => (
+                <option key={g.id} value={g.id}>
+                  {g.name}{g.default_day ? ` — ${g.default_day}s ${g.default_time?.slice(0,5) || ''}` : ''}
+                </option>
+              ))}
             </PSelect>
+          </PField>
+          <PField label="I also play at…">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {groups.filter(g => g.id !== primaryGroupId).map(g => {
+                const checked = additionalGroupIds.includes(g.id)
+                return (
+                  <label key={g.id} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '8px 10px', borderRadius: 8, border: `1px solid ${checked ? '#a8d87a' : '#e0e0e0'}`, background: checked ? '#eaf5e0' : '#fff' }}>
+                    <input type="checkbox" checked={checked}
+                      onChange={() => setAdditionalGroupIds(prev => checked ? prev.filter(id => id !== g.id) : [...prev, g.id])}
+                      style={{ width: 16, height: 16, accentColor: '#2d5509' }} />
+                    <span style={{ fontSize: 14, fontWeight: checked ? 600 : 400 }}>
+                      {g.name}{g.default_day ? <span style={{ fontSize: 12, color: '#888', fontWeight: 400 }}> — {g.default_day}s {g.default_time?.slice(0,5) || ''}</span> : ''}
+                    </span>
+                  </label>
+                )
+              })}
+            </div>
+            <div style={{ fontSize: 12, color: '#888', marginTop: 8 }}>Select all groups you play with. Captains will approve you for each group separately.</div>
           </PField>
         </PCard>
 
         {/* ROSTER MATCH */}
-        {!isLinked && (
+        {!isLinked && primaryGroupId && (
           <PCard title="Are you already in the roster?">
             <p style={{ fontSize: 13, color: '#666', marginBottom: 12, lineHeight: 1.5 }}>
-              If you've played with this group before, select your name from the list. A captain will verify and link your account.
+              If you've played with this group before, select your name. A captain will verify and link your account.
             </p>
             <PField label="Your name in the roster">
               <PSelect value={suggestedPlayerId} onChange={e => setSuggestedPlayerId(e.target.value)}>
                 <option value="">I'm not in the roster yet / not sure</option>
-                {roster.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                {roster
+                  .filter(p => !linkedPlayerIds.has(p.id))
+                  .filter(p => !p.primary_group_id || p.primary_group_id === primaryGroupId)
+                  .map(p => <option key={p.id} value={p.id}>{p.name}</option>)
+                }
               </PSelect>
             </PField>
           </PCard>
