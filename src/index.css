@@ -45,6 +45,13 @@ label { font-size: 12px; color: #666; display: block; margin-bottom: 4px; }
 .ptag.FWD { background: #fef6e4; color: #7a4d00; }
 .crow { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid #f0f0f0; cursor: pointer; }
 .crow:last-child { border-bottom: none; }
+.pos-btn { padding: 7px 16px; border-radius: 8px; border: 1.5px solid #ccc; background: #fff; font-size: 13px; font-weight: 600; cursor: pointer; color: #555; transition: all 0.1s; }
+.pos-btn:hover { border-color: #2d5509; color: #2d5509; background: #f5faf0; }
+.pos-btn.sel-GK { background: #fff0eb; border-color: #8b3a1e; color: #8b3a1e; }
+.pos-btn.sel-DEF { background: #e8f2fc; border-color: #1a4f80; color: #1a4f80; }
+.pos-btn.sel-MID { background: #eaf5e0; border-color: #2d5509; color: #2a5c0e; }
+.pos-btn.sel-FWD { background: #fef6e4; border-color: #c07a00; color: #7a4d00; }
+.pos-btn.sel-none { background: #f5f5f5; border-color: #bbb; color: #999; }
 .chk { width: 20px; height: 20px; border-radius: 4px; border: 1.5px solid #bbb; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .chk.on { background: #2d5509; border-color: #2d5509; }
 .tbox { border-radius: 12px; padding: 13px; margin-bottom: 12px; }
