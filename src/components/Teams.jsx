@@ -98,6 +98,8 @@ export default function Teams({ players, onSaveGame, isAdmin, games, groupId, gr
   const [presentPlayers, setPresentPlayers] = useState([])
   const [addLateOpen, setAddLateOpen] = useState(false)
   const [addLateQ, setAddLateQ] = useState('')
+  const [showAddPlayer, setShowAddPlayer] = useState(false)
+  const [addSearch, setAddSearch] = useState('')
 
   // Game date defaults to next Sunday
   const [gameDate, setGameDate] = useState(() => {

@@ -234,10 +234,13 @@ export default function Profile() {
     if (photoFile) {
       const ext = photoFile.name.split('.').pop()
       const { error: upErr } = await sb.storage.from('avatars').upload(`avatars/${user.id}.${ext}`, photoFile, { upsert: true })
-      if (!upErr) {
-        const { data: urlData } = sb.storage.from('avatars').getPublicUrl(`avatars/${user.id}.${ext}`)
-        photoUrl = `${urlData.publicUrl}?t=${Date.now()}`
+      if (upErr) {
+        setAlert({ msg: 'Photo upload failed: ' + upErr.message, type: 'red' })
+        setSaving(false)
+        return
       }
+      const { data: urlData } = sb.storage.from('avatars').getPublicUrl(`avatars/${user.id}.${ext}`)
+      photoUrl = `${urlData.publicUrl}?t=${Date.now()}`
     }
 
     const today = new Date(), birth = new Date(dob)
