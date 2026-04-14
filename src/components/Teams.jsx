@@ -161,6 +161,24 @@ export default function Teams({ players, onSaveGame, isAdmin, games, groupId, gr
   }
   const reshuffle = () => { setTeams(genTeams(presentPlayers, n)); setSaved(false); setSubs([]) }
 
+  const reshuffleAndNotify = async () => {
+    const newTeams = genTeams(presentPlayers, n)
+    setTeams(newTeams); setSaved(false); setSubs([])
+    // If already published, re-notify Telegram with updated teams
+    if (saved && groupId) {
+      const teamData = newTeams.map(t => t.map(p => ({ name: p.name, positions: p.positions || ['MID'], isGuest: p.isGuest || false })))
+      sendTelegram('teams_published', {
+        gameDate: fmtDate(),
+        groupName: groupSlug,
+        groupSlug,
+        groupId,
+        groupUrl: `${window.location.origin}/${groupSlug}`,
+        teams: teamData.map(t => t.map(p => p.name)),
+        isReshuffle: true,
+      })
+    }
+  }
+
   const addLatePlayer = (p) => {
     setPresentPlayers(prev => [...prev, p])
     setAddLateQ('')
@@ -691,7 +709,7 @@ export default function Teams({ players, onSaveGame, isAdmin, games, groupId, gr
           ))}
         </div>
       </div>
-      <button className="reshuffle" onClick={() => { reshuffle(); setSaved(false) }}>↺ Reshuffle teams ({presentPlayers.length} players)</button>
+      <button className="reshuffle" onClick={reshuffleAndNotify}>↺ Reshuffle teams ({presentPlayers.length} players)</button>
       {saved
         ? <div style={{ marginTop: 10 }}>
           <div className="alert green" style={{ textAlign: 'center', marginBottom: 8 }}>Published ✓ — visible to everyone</div>

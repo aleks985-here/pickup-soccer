@@ -38,11 +38,17 @@ export default function Rsvp() {
       setUser(u)
       if (u) fetchUserRole(u)
     })
-    const { data: { subscription } } = sb.auth.onAuthStateChange((_, s) => {
+    const { data: { subscription } } = sb.auth.onAuthStateChange((event, s) => {
       const u = s?.user ?? null
       setUser(u)
-      if (u) fetchUserRole(u)
-      else { setRole(null); setMyPlayer(null) }
+      if (u) {
+        fetchUserRole(u)
+        // After login, if there's a saved redirect back to this RSVP, clear it
+        const redirect = localStorage.getItem('rsvp_redirect')
+        if (redirect && redirect === window.location.pathname) {
+          localStorage.removeItem('rsvp_redirect')
+        }
+      } else { setRole(null); setMyPlayer(null) }
     })
     loadGame()
     return () => subscription.unsubscribe()
@@ -238,7 +244,7 @@ export default function Rsvp() {
   }, [allPlayers, rsvps, addSearch])
 
   const autoCloseIn = game?.scheduled_at
-    ? Math.round((new Date(game.scheduled_at) - Date.now() - 2 * 3600000) / 60000)
+    ? Math.round((new Date(game.scheduled_at) - Date.now() - 1 * 3600000) / 60000)
     : null
 
   if (loading) return (
@@ -367,8 +373,23 @@ export default function Rsvp() {
           ) : !user ? (
             <div>
               <p style={{ fontSize: 14, color: '#666', marginBottom: 12, lineHeight: 1.5 }}>Sign in to RSVP for this game.</p>
-              <button onClick={() => setShowLogin(true)} style={{ width: '100%', background: '#2d5509', color: '#fff', border: 'none', borderRadius: 8, padding: '12px', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
+              <button onClick={() => {
+                localStorage.setItem('rsvp_redirect', window.location.pathname)
+                setShowLogin(true)
+              }} style={{ width: '100%', background: '#2d5509', color: '#fff', border: 'none', borderRadius: 8, padding: '12px', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
                 Sign in to RSVP
+              </button>
+            </div>
+          ) : user && !myPlayer ? (
+            <div>
+              <p style={{ fontSize: 14, color: '#666', marginBottom: 12, lineHeight: 1.5 }}>
+                You need to complete your player profile before RSVPing so the captain knows who you are.
+              </p>
+              <button onClick={() => {
+                localStorage.setItem('rsvp_redirect', window.location.pathname)
+                window.location.href = '/profile'
+              }} style={{ width: '100%', background: '#2d5509', color: '#fff', border: 'none', borderRadius: 8, padding: '12px', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
+                Complete your profile →
               </button>
             </div>
           ) : (

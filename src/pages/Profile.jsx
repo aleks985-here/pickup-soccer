@@ -289,6 +289,12 @@ export default function Profile() {
     setAlert({ msg: '✓ Profile submitted! A captain will review your request and add you to the roster.', type: 'green' })
     setPendingStatus('pending')
     window.scrollTo(0, 0)
+    // Redirect back to RSVP page if player came from one
+    const rsvpRedirect = localStorage.getItem('rsvp_redirect')
+    if (rsvpRedirect) {
+      localStorage.removeItem('rsvp_redirect')
+      setTimeout(() => navigate(rsvpRedirect), 1500)
+    }
 
     // Notify captains via email + Telegram (fire & forget)
     const playerFullName = `${firstName.trim()} ${lastName.trim()}`
