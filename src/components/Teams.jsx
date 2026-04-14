@@ -205,7 +205,7 @@ export default function Teams({ players, onSaveGame, isAdmin, games, groupId, gr
 
   const save = async () => {
     setBusy(true)
-    const teamData = teams.map(t => t.map(p => ({ name: p.name, positions: p.positions || ['MID'], isGuest: p.isGuest || false })))
+    const teamData = teams.map(t => t.map(p => ({ name: p.name, positions: p.positions || ['MID'], isGuest: p.isGuest || false, photo_url: p.photo_url || null })))
     await onSaveGame({
       game_date: fmtDate(),
       team_count: n,
@@ -285,7 +285,7 @@ export default function Teams({ players, onSaveGame, isAdmin, games, groupId, gr
     const [{ data: g }, { data: rv }] = await Promise.all([
       sb.from('games').select('*').eq('id', gameId).maybeSingle(),
       sb.from('rsvps')
-        .select('id,player_id,auth_user_id,status,guests,players(id,name,first_name,last_name)')
+        .select('id,player_id,auth_user_id,status,guests,players(id,name,first_name,last_name,photo_url)')
         .eq('game_id', gameId),
     ])
     setRsvpGame(g)
@@ -309,7 +309,7 @@ export default function Teams({ players, onSaveGame, isAdmin, games, groupId, gr
         const pName = r.players?.first_name
           ? `${r.players.first_name} ${r.players.last_name || ''}`.trim()
           : r.players?.name || 'Unknown'
-        rsvpPlayers.push({ id: r.id, name: pName, skill: 5, positions: ['MID'] })
+        rsvpPlayers.push({ id: r.id, name: pName, skill: 5, positions: ['MID'], photo_url: r.players?.photo_url || null })
       }
       // Add guests
       const gc = r.guests || 0
@@ -652,7 +652,7 @@ export default function Teams({ players, onSaveGame, isAdmin, games, groupId, gr
           </div>
           {team.map(p => (
             <div key={p.id} className="tplayer">
-              <Av name={p.name} size={26} />
+              <Av name={p.name} size={26} photo={p.photo_url} />
               <span style={{ flex: 1, fontWeight: 500 }}>
                 {p.name}{p.donor && <span style={{ fontSize: 12, marginLeft: 4 }}>💚</span>}
                 {p.isGuest && <span style={{ fontSize: 10, background: '#fef6e4', color: '#7a4d00', border: '1px solid #f0c060', borderRadius: 4, padding: '1px 5px', marginLeft: 5, fontWeight: 700 }}>GUEST</span>}

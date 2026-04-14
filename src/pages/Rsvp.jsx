@@ -4,6 +4,7 @@ import { sb, sendEmail, sendTelegram } from '../lib/supabase'
 import { LOGO_URL } from '../lib/constants'
 import { genTeams } from '../lib/utils'
 import LoginModal from '../components/LoginModal'
+import Av from '../components/Av'
 
 export default function Rsvp() {
   const { groupSlug, gameId } = useParams()
@@ -88,7 +89,7 @@ export default function Rsvp() {
     const [{ data: g }, { data: rv }] = await Promise.all([
       sb.from('games').select('*').eq('id', gameId).maybeSingle(),
       sb.from('rsvps')
-        .select('id,player_id,auth_user_id,status,guests,players(id,name,first_name,last_name)')
+        .select('id,player_id,auth_user_id,status,guests,players(id,name,first_name,last_name,photo_url)')
         .eq('game_id', gameId)
         .order('created_at'),
     ])
@@ -439,7 +440,7 @@ export default function Rsvp() {
             : <div style={{ marginBottom: outList.length > 0 ? 14 : 0 }}>
                 {inList.map((r, i) => (
                   <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', borderBottom: i < inList.length - 1 ? '1px solid #f5f5f5' : 'none' }}>
-                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#eaf5e0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#2d5509', flexShrink: 0 }}>✓</div>
+                    <Av name={playerName(r)} size={28} photo={r.players?.photo_url} />
                     <div style={{ flex: 1 }}>
                       <span style={{ fontSize: 14, fontWeight: 600 }}>{playerName(r)}</span>
                       {r.guests > 0 && <span style={{ fontSize: 12, color: '#888', marginLeft: 6 }}>+{r.guests} guest{r.guests > 1 ? 's' : ''}</span>}
