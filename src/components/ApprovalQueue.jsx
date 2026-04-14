@@ -40,6 +40,30 @@ export default function ApprovalQueue({ onClose, players, onApproved, groupId })
         ...(p.photo_url ? { photo_url: p.photo_url } : {}),
       }).eq('id', linkToId)
       if (!error) {
+        // Ensure player_groups row exists for their primary group
+        const primaryGid = p.primary_group_id || p.group_id || groupId
+        if (primaryGid) {
+          const { data: existing } = await sb.from('player_groups')
+            .select('id').eq('player_id', linkToId).eq('group_id', primaryGid).maybeSingle()
+          if (!existing) {
+            await sb.from('player_groups').insert({
+              player_id: linkToId, group_id: primaryGid, skill: 5, active: true, added_by: 'captain',
+            })
+          } else {
+            await sb.from('player_groups').update({ active: true }).eq('player_id', linkToId).eq('group_id', primaryGid)
+          }
+        }
+        // Additional groups
+        const extras = (p.additional_group_ids || []).filter(gid => gid !== primaryGid)
+        for (const gid of extras) {
+          const { data: ex2 } = await sb.from('player_groups')
+            .select('id').eq('player_id', linkToId).eq('group_id', gid).maybeSingle()
+          if (!ex2) {
+            await sb.from('player_groups').insert({
+              player_id: linkToId, group_id: gid, skill: 5, active: true, added_by: 'captain',
+            })
+          }
+        }
         await sb.from('pending_profiles').update({ status: 'linked', reviewed_at: new Date().toISOString() }).eq('id', p.id)
         setPending(prev => prev.filter(x => x.id !== p.id))
         logActivity({ action: 'profile_linked', playerName: fullName, groupId, notes: p.email })
@@ -47,7 +71,7 @@ export default function ApprovalQueue({ onClose, players, onApproved, groupId })
         onApproved(); setMsg(`✓ ${fullName} linked to roster`)
       } else setMsg('Error: ' + error.message)
     } else {
-      const { error } = await sb.from('players').insert({
+      const { data: newPlayer, error } = await sb.from('players').insert({
         name: fullName,
         skill: 5,
         positions: p.positions || ['MID'],
@@ -63,14 +87,39 @@ export default function ApprovalQueue({ onClose, players, onApproved, groupId })
         league_experience: p.league_experience,
         player_notes: p.player_notes,
         profile_complete: true,
+        primary_group_id: p.primary_group_id || p.group_id || groupId || null,
+        additional_group_ids: p.additional_group_ids || [],
         ...(p.photo_url ? { photo_url: p.photo_url } : {}),
-      })
-      if (!error) {
+      }).select().single()
+
+      if (!error && newPlayer) {
+        // Add to player_groups for primary group
+        const primaryGid = p.primary_group_id || p.group_id || groupId
+        if (primaryGid) {
+          await sb.from('player_groups').insert({
+            player_id: newPlayer.id,
+            group_id: primaryGid,
+            skill: 5,
+            active: true,
+            added_by: 'captain',
+          })
+        }
+        // Add to player_groups for additional groups
+        const extras = (p.additional_group_ids || []).filter(gid => gid !== primaryGid)
+        for (const gid of extras) {
+          await sb.from('player_groups').insert({
+            player_id: newPlayer.id,
+            group_id: gid,
+            skill: 5,
+            active: true,
+            added_by: 'captain',
+          })
+        }
         await sb.from('pending_profiles').update({ status: 'approved', reviewed_at: new Date().toISOString() }).eq('id', p.id)
         setPending(prev => prev.filter(x => x.id !== p.id))
         logActivity({ action: 'profile_approved', playerName: fullName, groupId, notes: p.email })
-        onApproved(); setMsg(`✓ ${fullName} added to roster as new player`)
-      } else setMsg('Error: ' + error.message)
+        onApproved(); setMsg(`✓ ${fullName} added to roster`)
+      } else setMsg('Error: ' + (error?.message || 'Unknown error'))
     }
     setBusy(null)
   }
